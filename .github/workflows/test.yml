@@ -26,12 +26,13 @@ jobs:
       run: CGO_ENABLED=0 go test -tags nogui -v ./...
 
     - name: Run go vet
-      run: go vet ./...
+      run: CGO_ENABLED=0 go vet -tags nogui ./...
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v3
       with:
         version: latest
+        args: --build-tags nogui
 
     - name: Test builds
       run: |
