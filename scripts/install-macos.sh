@@ -5,7 +5,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LAUNCHER_DIR="$(dirname "$SCRIPT_DIR")"
+LAUNCHER_DIR="$SCRIPT_DIR"
 
 echo "🚀 DDALAB Launcher macOS Installation Helper"
 echo "=============================================="
