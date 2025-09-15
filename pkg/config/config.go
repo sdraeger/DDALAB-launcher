@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Version is injected at build time
@@ -16,10 +17,13 @@ func GetVersion() string {
 
 // LauncherConfig holds the persistent state of the launcher
 type LauncherConfig struct {
-	DDALABPath    string `json:"ddalab_path"`
-	FirstRun      bool   `json:"first_run"`
-	LastOperation string `json:"last_operation"`
-	Version       string `json:"version"`
+	DDALABPath          string    `json:"ddalab_path"`
+	FirstRun            bool      `json:"first_run"`
+	LastOperation       string    `json:"last_operation"`
+	Version             string    `json:"version"`
+	AutoUpdateCheck     bool      `json:"auto_update_check"`
+	LastUpdateCheck     time.Time `json:"last_update_check"`
+	UpdateCheckInterval int       `json:"update_check_interval_hours"` // in hours
 }
 
 // ConfigManager handles loading and saving configuration
@@ -40,8 +44,11 @@ func NewConfigManager() (*ConfigManager, error) {
 	cm := &ConfigManager{
 		configPath: configPath,
 		config: &LauncherConfig{
-			FirstRun: true,
-			Version:  GetVersion(),
+			FirstRun:            true,
+			Version:             GetVersion(),
+			AutoUpdateCheck:     true,        // Default to enabled
+			UpdateCheckInterval: 24,          // Check daily by default
+			LastUpdateCheck:     time.Time{}, // Never checked
 		},
 	}
 
@@ -100,4 +107,46 @@ func (cm *ConfigManager) IsFirstRun() bool {
 // GetDDALABPath returns the configured DDALAB path
 func (cm *ConfigManager) GetDDALABPath() string {
 	return cm.config.DDALABPath
+}
+
+// Update-related methods
+
+// SetAutoUpdateCheck enables or disables automatic update checking
+func (cm *ConfigManager) SetAutoUpdateCheck(enabled bool) {
+	cm.config.AutoUpdateCheck = enabled
+}
+
+// IsAutoUpdateCheckEnabled returns true if automatic update checking is enabled
+func (cm *ConfigManager) IsAutoUpdateCheckEnabled() bool {
+	return cm.config.AutoUpdateCheck
+}
+
+// SetUpdateCheckInterval sets the interval between update checks in hours
+func (cm *ConfigManager) SetUpdateCheckInterval(hours int) {
+	cm.config.UpdateCheckInterval = hours
+}
+
+// GetUpdateCheckInterval returns the update check interval in hours
+func (cm *ConfigManager) GetUpdateCheckInterval() int {
+	return cm.config.UpdateCheckInterval
+}
+
+// SetLastUpdateCheck records when we last checked for updates
+func (cm *ConfigManager) SetLastUpdateCheck(t time.Time) {
+	cm.config.LastUpdateCheck = t
+}
+
+// GetLastUpdateCheck returns when we last checked for updates
+func (cm *ConfigManager) GetLastUpdateCheck() time.Time {
+	return cm.config.LastUpdateCheck
+}
+
+// ShouldCheckForUpdates determines if we should check for updates now
+func (cm *ConfigManager) ShouldCheckForUpdates() bool {
+	if !cm.config.AutoUpdateCheck {
+		return false
+	}
+
+	interval := time.Duration(cm.config.UpdateCheckInterval) * time.Hour
+	return time.Since(cm.config.LastUpdateCheck) >= interval
 }

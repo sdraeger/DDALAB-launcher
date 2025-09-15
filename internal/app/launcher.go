@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ddalab/launcher/pkg/commands"
 	"github.com/ddalab/launcher/pkg/config"
 	"github.com/ddalab/launcher/pkg/detector"
 	"github.com/ddalab/launcher/pkg/interrupt"
 	"github.com/ddalab/launcher/pkg/ui"
+	"github.com/ddalab/launcher/pkg/updater"
 )
 
 // Launcher is the main application struct
@@ -89,6 +91,9 @@ func (l *Launcher) runFirstTimeSetup() error {
 
 // runMainLoop handles the main menu loop with enhanced error handling
 func (l *Launcher) runMainLoop() error {
+	// Check for launcher updates on startup (background check)
+	l.checkForUpdatesOnStartup()
+
 	for {
 		// Clear screen for better UX
 		fmt.Print("\033[2J\033[H")
@@ -171,6 +176,8 @@ func (l *Launcher) handleMenuChoice(choice string) error {
 		return l.handleBackupCommand()
 	case "Update DDALAB":
 		return l.handleUpdateCommand()
+	case "Check for Launcher Updates":
+		return l.handleCheckUpdatesCommand()
 	case "Uninstall DDALAB":
 		return l.handleUninstallCommand()
 	case "Exit":
@@ -415,4 +422,122 @@ func (l *Launcher) handleEditConfigCommand() error {
 	l.ui.ShowInfo("If you made changes, you may need to restart DDALAB for them to take effect")
 
 	return nil
+}
+
+// handleCheckUpdatesCommand checks for launcher updates
+func (l *Launcher) handleCheckUpdatesCommand() error {
+	return l.executeWithInterrupt("checking for updates", func(ctx context.Context) error {
+		l.ui.ShowProgress("Checking for launcher updates")
+
+		// Create updater
+		currentVersion := l.configManager.GetConfig().Version
+		updaterInstance := updater.NewUpdater(currentVersion)
+
+		// Check for updates
+		updateInfo, err := updaterInstance.CheckForUpdates(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to check for updates: %w", err)
+		}
+
+		// Record the check time
+		l.configManager.SetLastUpdateCheck(time.Now())
+		if err := l.configManager.Save(); err != nil {
+			l.ui.ShowWarning(fmt.Sprintf("Failed to save last update check time: %v", err))
+		}
+
+		if !updateInfo.HasUpdate {
+			l.ui.ShowSuccess("You're running the latest version!")
+			l.ui.ShowInfo(fmt.Sprintf("Current version: %s", updateInfo.CurrentVersion))
+			l.ui.ShowInfo(fmt.Sprintf("Latest version: %s", updateInfo.LatestVersion))
+			l.ui.ShowInfo(fmt.Sprintf("Platform: %s", updater.GetPlatformString()))
+			return nil
+		}
+
+		// Show update information
+		l.ui.ShowSuccess("A new version is available!")
+		l.ui.ShowInfo(fmt.Sprintf("Current version: %s", updateInfo.CurrentVersion))
+		l.ui.ShowInfo(fmt.Sprintf("Latest version: %s", updateInfo.LatestVersion))
+		l.ui.ShowInfo(fmt.Sprintf("Released: %s", updateInfo.PublishedAt.Format("January 2, 2006")))
+
+		if updateInfo.Size > 0 {
+			l.ui.ShowInfo(fmt.Sprintf("Download size: %s", updater.FormatSize(updateInfo.Size)))
+		}
+
+		if updateInfo.ReleaseNotes != "" {
+			fmt.Println("\n📋 Release Notes:")
+			fmt.Println(updateInfo.ReleaseNotes)
+		}
+
+		if updateInfo.DownloadURL == "" {
+			l.ui.ShowWarning("No download available for your platform")
+			l.ui.ShowInfo(fmt.Sprintf("Platform: %s", updater.GetPlatformString()))
+			return nil
+		}
+
+		// Ask user if they want to update
+		if !l.ui.ConfirmOperation("download and install this update") {
+			l.ui.ShowInfo("Update cancelled")
+			return nil
+		}
+
+		return l.performLauncherUpdate(ctx, updaterInstance, updateInfo)
+	})
+}
+
+// performLauncherUpdate downloads and applies the launcher update
+func (l *Launcher) performLauncherUpdate(ctx context.Context, updaterInstance *updater.Updater, updateInfo *updater.UpdateInfo) error {
+	l.ui.ShowProgress("Downloading update")
+	l.ui.ShowInfo("This may take a moment...")
+
+	err := updaterInstance.PerformUpdate(ctx, updateInfo.DownloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to apply update: %w", err)
+	}
+
+	l.ui.ShowSuccess("Update completed successfully!")
+	l.ui.ShowInfo(fmt.Sprintf("Updated to version %s", updateInfo.LatestVersion))
+	l.ui.ShowInfo("Please restart the launcher to use the new version")
+
+	// Update the version in config
+	l.configManager.GetConfig().Version = updateInfo.LatestVersion
+	if err := l.configManager.Save(); err != nil {
+		l.ui.ShowWarning(fmt.Sprintf("Failed to save version info: %v", err))
+	}
+
+	return nil
+}
+
+// checkForUpdatesOnStartup performs automatic update checks if enabled
+func (l *Launcher) checkForUpdatesOnStartup() {
+	// Skip if auto-update is disabled or not time to check
+	if !l.configManager.ShouldCheckForUpdates() {
+		return
+	}
+
+	// Show brief message about background check
+	l.ui.ShowInfo("Checking for launcher updates...")
+
+	// Create a context with timeout for background check
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	currentVersion := l.configManager.GetConfig().Version
+	updaterInstance := updater.NewUpdater(currentVersion)
+
+	updateInfo, err := updaterInstance.CheckForUpdates(ctx)
+	if err != nil {
+		// Silently fail for background checks - don't disturb user experience
+		l.configManager.SetLastUpdateCheck(time.Now())
+		_ = l.configManager.Save()
+		return
+	}
+
+	// Record the check time
+	l.configManager.SetLastUpdateCheck(time.Now())
+	_ = l.configManager.Save()
+
+	if updateInfo.HasUpdate {
+		l.ui.ShowInfo(fmt.Sprintf("📦 Update available: %s → %s", updateInfo.CurrentVersion, updateInfo.LatestVersion))
+		l.ui.ShowInfo("Use 'Check for Launcher Updates' from the menu to install")
+	}
 }

@@ -49,17 +49,18 @@ func (ui *UI) ShowMainMenu() (string, error) {
 
 	// Map actions back to original string format for compatibility
 	actionMap := map[string]string{
-		"start":       "Start DDALAB",
-		"stop":        "Stop DDALAB",
-		"restart":     "Restart DDALAB",
-		"status":      "Check Status",
-		"logs":        "View Logs",
-		"edit-config": "Edit Configuration",
-		"configure":   "Configure Installation",
-		"backup":      "Backup Database",
-		"update":      "Update DDALAB",
-		"uninstall":   "Uninstall DDALAB",
-		"exit":        "Exit",
+		"start":         "Start DDALAB",
+		"stop":          "Stop DDALAB",
+		"restart":       "Restart DDALAB",
+		"status":        "Check Status",
+		"logs":          "View Logs",
+		"edit-config":   "Edit Configuration",
+		"configure":     "Configure Installation",
+		"backup":        "Backup Database",
+		"update":        "Update DDALAB",
+		"check-updates": "Check for Launcher Updates",
+		"uninstall":     "Uninstall DDALAB",
+		"exit":          "Exit",
 	}
 
 	if result, exists := actionMap[action]; exists {

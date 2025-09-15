@@ -56,6 +56,7 @@ After the initial setup, the launcher provides these options:
 - **Configure Installation** - Change DDALAB installation path
 - **Backup Database** - Create a database backup
 - **Update DDALAB** - Pull latest images and restart (cancellable with Ctrl+C)
+- **Check for Launcher Updates** - Check for and install launcher updates
 - **Uninstall DDALAB** - Remove all services and data (with double confirmation)
 - **Exit** - Close the launcher
 
@@ -130,9 +131,22 @@ The launcher stores its configuration in `~/.ddalab-launcher` as JSON:
   "ddalab_path": "/path/to/DDALAB-setup",
   "first_run": false,
   "last_operation": "start",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "auto_update_check": true,
+  "update_check_interval_hours": 24,
+  "last_update_check": "2023-12-01T10:00:00Z"
 }
 ```
+
+### Auto-Update Settings
+
+The launcher includes automatic update checking:
+
+- **`auto_update_check`**: Enable/disable automatic update checks (default: `true`)
+- **`update_check_interval_hours`**: Hours between update checks (default: `24`)
+- **`last_update_check`**: Timestamp of last update check
+
+Updates are checked automatically on startup if enabled and the interval has passed. Manual checks are always available through the menu.
 
 ## Installation Detection
 

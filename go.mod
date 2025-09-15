@@ -3,8 +3,10 @@ module github.com/ddalab/launcher
 go 1.24.0
 
 require (
+	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbletea v1.3.9
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf
 )
 
 require (
