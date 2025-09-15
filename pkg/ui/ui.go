@@ -7,7 +7,6 @@ import (
 
 	"github.com/ddalab/launcher/pkg/config"
 	"github.com/ddalab/launcher/pkg/detector"
-	"github.com/manifoldco/promptui"
 )
 
 // UI handles user interaction through prompts
@@ -50,16 +49,17 @@ func (ui *UI) ShowMainMenu() (string, error) {
 
 	// Map actions back to original string format for compatibility
 	actionMap := map[string]string{
-		"start":     "Start DDALAB",
-		"stop":      "Stop DDALAB",
-		"restart":   "Restart DDALAB",
-		"status":    "Check Status",
-		"logs":      "View Logs",
-		"configure": "Configure Installation",
-		"backup":    "Backup Database",
-		"update":    "Update DDALAB",
-		"uninstall": "Uninstall DDALAB",
-		"exit":      "Exit",
+		"start":       "Start DDALAB",
+		"stop":        "Stop DDALAB",
+		"restart":     "Restart DDALAB",
+		"status":      "Check Status",
+		"logs":        "View Logs",
+		"edit-config": "Edit Configuration",
+		"configure":   "Configure Installation",
+		"backup":      "Backup Database",
+		"update":      "Update DDALAB",
+		"uninstall":   "Uninstall DDALAB",
+		"exit":        "Exit",
 	}
 
 	if result, exists := actionMap[action]; exists {
@@ -92,14 +92,22 @@ func (ui *UI) SelectInstallation() (string, error) {
 	}
 	items = append(items, "➕ Configure new installation path")
 
-	prompt := promptui.Select{
-		Label: "Select DDALAB installation",
-		Items: items,
-	}
-
-	index, _, err := prompt.Run()
+	selectedItem, err := RunMenu("Select DDALAB installation", items)
 	if err != nil {
 		return "", err
+	}
+
+	// Find the index of the selected item
+	index := -1
+	for i, item := range items {
+		if item == selectedItem {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		return "", fmt.Errorf("invalid selection")
 	}
 
 	// If user selected "Configure new installation"
@@ -134,13 +142,7 @@ func (ui *UI) configureNewInstallation() (string, error) {
 		return nil
 	}
 
-	prompt := promptui.Prompt{
-		Label:    "Enter DDALAB installation path",
-		Validate: validate,
-		Default:  "~/DDALAB-setup",
-	}
-
-	result, err := prompt.Run()
+	result, err := RunPrompt("Enter DDALAB installation path", "~/DDALAB-setup", validate)
 	if err != nil {
 		return "", err
 	}
@@ -176,17 +178,12 @@ func (ui *UI) ShowManagementMenu() (string, error) {
 
 // confirmContinue shows a yes/no prompt
 func (ui *UI) confirmContinue(message string) bool {
-	prompt := promptui.Select{
-		Label: message,
-		Items: []string{"Yes", "No"},
-	}
-
-	_, result, err := prompt.Run()
+	result, err := RunConfirm(message)
 	if err != nil {
 		return false
 	}
 
-	return result == "Yes"
+	return result
 }
 
 // ShowProgress displays a progress message
@@ -220,9 +217,5 @@ func (ui *UI) WaitForUser(message string) {
 		message = "Press Enter to continue..."
 	}
 
-	prompt := promptui.Prompt{
-		Label: message,
-	}
-
-	_, _ = prompt.Run()
+	_ = RunWait(message)
 }

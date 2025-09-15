@@ -229,7 +229,7 @@ jobs:
           
           ### 🚀 Features
           - Cross-platform DDALAB management tool
-          - Interactive menu system with promptui
+          - Modern interactive terminal UI with bubbletea
           - Interrupt support for long-running operations (Ctrl+C)
           - Auto-detection of DDALAB installations
           - Status monitoring and log viewing

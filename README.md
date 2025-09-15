@@ -6,7 +6,7 @@ A user-friendly Go launcher for DDALAB (Delay Differential Analysis Laboratory) 
 
 - 🔍 **Auto-detection**: Automatically finds DDALAB installations on your system
 - 💾 **State Persistence**: Remembers your configuration in `~/.ddalab-launcher`
-- 🎯 **Simple Interface**: Interactive prompts using `promptui` for easy navigation
+- 🎯 **Simple Interface**: Modern terminal UI using `bubbletea` for intuitive navigation
 - 🚀 **One-click Operations**: Start, stop, restart, backup, and update DDALAB
 - 🖥️ **Cross-platform**: Works on Linux, macOS, and Windows
 - 📊 **Status Monitoring**: Check service health and view logs
@@ -197,7 +197,7 @@ The launcher includes comprehensive error handling:
 
 ## Dependencies
 
-- **promptui**: Interactive command-line prompts
+- **bubbletea**: Modern terminal user interface framework
 - **Go standard library**: File operations, exec, etc.
 
 ## Building Binaries

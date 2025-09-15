@@ -2,8 +2,6 @@ package ui
 
 import (
 	"fmt"
-
-	"github.com/manifoldco/promptui"
 )
 
 // MenuOption represents a menu choice with associated data
@@ -26,11 +24,6 @@ func NewMenuManager(ui *UI) *MenuManager {
 
 // ShowMenu displays a menu with the given options and returns the selected action
 func (m *MenuManager) ShowMenu(title string, options []MenuOption) (string, error) {
-	if title != "" {
-		fmt.Printf("\n%s\n", title)
-		fmt.Println(string(make([]byte, len(title))))
-	}
-
 	items := make([]string, len(options))
 	for i, option := range options {
 		if option.Icon != "" {
@@ -44,18 +37,19 @@ func (m *MenuManager) ShowMenu(title string, options []MenuOption) (string, erro
 		}
 	}
 
-	prompt := promptui.Select{
-		Label: "Select an option",
-		Items: items,
-		Size:  10,
-	}
-
-	index, _, err := prompt.Run()
+	selectedItem, err := RunMenu(title, items)
 	if err != nil {
 		return "", err
 	}
 
-	return options[index].Action, nil
+	// Find the corresponding action
+	for i, item := range items {
+		if item == selectedItem {
+			return options[i].Action, nil
+		}
+	}
+
+	return "", fmt.Errorf("invalid selection")
 }
 
 // GetMainMenuOptions returns the standard main menu options
@@ -100,17 +94,12 @@ func (m *MenuManager) GetServiceMenuOptions() []MenuOption {
 
 // ShowConfirmation shows a confirmation dialog and returns true if confirmed
 func (m *MenuManager) ShowConfirmation(message string) bool {
-	options := []MenuOption{
-		{Label: "Yes", Action: "yes", Icon: "✅"},
-		{Label: "No", Action: "no", Icon: "❌"},
-	}
-
-	action, err := m.ShowMenu(message, options)
+	result, err := RunConfirm(message)
 	if err != nil {
 		return false
 	}
 
-	return action == "yes"
+	return result
 }
 
 // ShowSubMenu displays a submenu and handles navigation
