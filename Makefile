@@ -1,4 +1,4 @@
-.PHONY: build run clean test install deps fmt lint vet pre-commit pre-commit-quick check-fmt
+.PHONY: build run clean test install deps fmt lint vet pre-commit pre-commit-quick check-fmt setup-hooks
 
 # Binary name
 BINARY_NAME=ddalab-launcher
@@ -108,3 +108,9 @@ check-fmt:
 		exit 1; \
 	fi
 	@echo "Code formatting is correct!"
+
+# Setup git hooks for development
+setup-hooks:
+	@echo "Setting up Git hooks..."
+	./scripts/setup-git-hooks.sh
+	@echo "Git hooks setup completed!"

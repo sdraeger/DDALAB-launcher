@@ -523,7 +523,7 @@ func (l *Launcher) performLauncherUpdate(ctx context.Context, updaterInstance *u
 
 	l.ui.ShowSuccess("Update completed successfully!")
 	l.ui.ShowInfo(fmt.Sprintf("Updated to version %s", updateInfo.LatestVersion))
-	
+
 	// Platform-specific restart instructions
 	switch runtime.GOOS {
 	case "windows":
