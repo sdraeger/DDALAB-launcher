@@ -75,6 +75,8 @@ func (h *Handler) handleSignals() {
 
 // WasInterrupted checks if the last operation was interrupted
 func (h *Handler) WasInterrupted() bool {
+	// Non-blocking receive to check if there's a notification
+	// Using select with default is intentional for non-blocking behavior
 	select {
 	case <-h.notifyCh:
 		return true

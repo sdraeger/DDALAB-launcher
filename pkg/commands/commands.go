@@ -240,7 +240,7 @@ func (c *Commander) Uninstall() error {
 
 	// Remove any DDALAB images
 	cmd = exec.Command("docker", "image", "prune", "-a", "-f", "--filter", "label=com.ddalab.component")
-	output, err = cmd.CombinedOutput()
+	_, err = cmd.CombinedOutput()
 	if err != nil {
 		// Non-critical error, continue
 		fmt.Printf("Warning: failed to remove DDALAB images: %s\n", err)

@@ -1,0 +1,26 @@
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - misspell
+    - errcheck
+
+linters-settings:
+  staticcheck:
+    checks: ["all", "-S1000"] # Disable S1000 (simple channel send/receive)
+
+issues:
+  exclude-rules:
+    # Exclude specific staticcheck rules for intentional patterns
+    - path: pkg/interrupt/handler.go
+      text: "should use a simple channel send/receive instead of select with a single case"
+      linters:
+        - staticcheck

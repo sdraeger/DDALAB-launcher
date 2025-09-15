@@ -155,7 +155,7 @@ func (d *Detector) ValidateInstallation(path string) error {
 
 	// Check if Docker is available
 	if !d.isDockerAvailable() {
-		return fmt.Errorf("Docker is not available or not running")
+		return fmt.Errorf("docker is not available or not running")
 	}
 
 	// Check if docker-compose is available
