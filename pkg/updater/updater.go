@@ -1,6 +1,10 @@
 package updater
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -152,11 +156,17 @@ func (u *Updater) PerformUpdate(ctx context.Context, downloadURL string) error {
 		return fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
+	// Extract binary from archive if needed
+	binaryReader, err := u.extractBinaryFromArchive(resp.Body, downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to extract binary from archive: %w", err)
+	}
+
 	// Use platform-specific update strategy
 	if runtime.GOOS == "windows" {
-		return u.performWindowsUpdate(currentExe, resp.Body)
+		return u.performWindowsUpdate(currentExe, binaryReader)
 	} else {
-		return u.performUnixUpdate(currentExe, resp.Body)
+		return u.performUnixUpdate(currentExe, binaryReader)
 	}
 }
 
@@ -214,8 +224,10 @@ func (u *Updater) findPlatformBinary(assets []struct {
 	for _, asset := range assets {
 		expectedName := fmt.Sprintf("%s-%s", currentOS, archString)
 		if strings.Contains(asset.Name, expectedName) {
-			// Skip checksums and other files
-			if strings.HasSuffix(asset.Name, ".tar.gz") || strings.HasSuffix(asset.Name, ".zip") {
+			// Check for appropriate archive format based on OS
+			if currentOS == "windows" && strings.HasSuffix(asset.Name, ".zip") {
+				return asset.BrowserDownloadURL, asset.Size
+			} else if currentOS != "windows" && strings.HasSuffix(asset.Name, ".tar.gz") {
 				return asset.BrowserDownloadURL, asset.Size
 			}
 		}
@@ -225,7 +237,10 @@ func (u *Updater) findPlatformBinary(assets []struct {
 	for _, platformString := range platformStrings {
 		for _, asset := range assets {
 			if strings.Contains(asset.Name, platformString) {
-				if strings.HasSuffix(asset.Name, ".tar.gz") || strings.HasSuffix(asset.Name, ".zip") {
+				// Check for appropriate archive format based on OS
+				if currentOS == "windows" && strings.HasSuffix(asset.Name, ".zip") {
+					return asset.BrowserDownloadURL, asset.Size
+				} else if currentOS != "windows" && strings.HasSuffix(asset.Name, ".tar.gz") {
 					return asset.BrowserDownloadURL, asset.Size
 				}
 			}
@@ -280,6 +295,222 @@ func GetPlatformString() string {
 	}
 
 	return fmt.Sprintf("%s %s", osName, archName)
+}
+
+// ExtractBinaryFromArchive extracts the binary from a compressed archive (exported for testing)
+func (u *Updater) ExtractBinaryFromArchive(archiveReader io.Reader, archiveURL string) (io.Reader, error) {
+	return u.extractBinaryFromArchive(archiveReader, archiveURL)
+}
+
+// extractBinaryFromArchive extracts the binary from a compressed archive
+func (u *Updater) extractBinaryFromArchive(archiveReader io.Reader, archiveURL string) (io.Reader, error) {
+	if strings.HasSuffix(archiveURL, ".tar.gz") {
+		return u.extractFromTarGz(archiveReader)
+	} else if strings.HasSuffix(archiveURL, ".zip") {
+		return u.extractFromZip(archiveReader)
+	}
+
+	// If it's not an archive, return as-is (raw binary)
+	return archiveReader, nil
+}
+
+// extractFromTarGz extracts the correct architecture binary from a tar.gz archive
+func (u *Updater) extractFromTarGz(reader io.Reader) (io.Reader, error) {
+	// Create gzip reader
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	// Create tar reader
+	tarReader := tar.NewReader(gzipReader)
+
+	// Get current platform info
+	currentOS := runtime.GOOS
+	currentArch := runtime.GOARCH
+
+	// Build the exact platform string we expect
+	expectedPlatformString := fmt.Sprintf("%s-%s", currentOS, currentArch)
+
+	// Alternative patterns we might encounter
+	expectedPatterns := []string{
+		fmt.Sprintf("ddalab-launcher-%s-%s", currentOS, currentArch),
+		fmt.Sprintf("launcher-%s-%s", currentOS, currentArch),
+		expectedPlatformString,
+	}
+
+	// On Windows, also look for .exe versions
+	if currentOS == "windows" {
+		windowsPatterns := make([]string, len(expectedPatterns))
+		for i, pattern := range expectedPatterns {
+			windowsPatterns[i] = pattern + ".exe"
+		}
+		expectedPatterns = append(expectedPatterns, windowsPatterns...)
+	}
+
+	var binaryData []byte
+	var foundBinaryName string
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tar entry: %w", err)
+		}
+
+		// Skip directories
+		if header.Typeflag == tar.TypeDir {
+			continue
+		}
+
+		fileName := filepath.Base(header.Name)
+
+		// Check if this binary matches our current platform
+		isCorrectBinary := false
+
+		// First, check for exact pattern matches
+		for _, pattern := range expectedPatterns {
+			if fileName == pattern || strings.Contains(fileName, pattern) {
+				isCorrectBinary = true
+				foundBinaryName = fileName
+				break
+			}
+		}
+
+		// If no exact match, check if it's a generic launcher binary and contains our platform string
+		if !isCorrectBinary {
+			if (fileName == "ddalab-launcher" || fileName == "launcher" ||
+				(currentOS == "windows" && (fileName == "ddalab-launcher.exe" || fileName == "launcher.exe"))) &&
+				strings.Contains(header.Name, expectedPlatformString) {
+				isCorrectBinary = true
+				foundBinaryName = fileName
+			}
+		}
+
+		// If this is the correct binary for our platform, extract it
+		if isCorrectBinary {
+			binaryData = make([]byte, header.Size)
+			_, err = io.ReadFull(tarReader, binaryData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read binary from archive: %w", err)
+			}
+			break
+		}
+	}
+
+	if len(binaryData) == 0 {
+		return nil, fmt.Errorf("no binary found for platform %s in archive. Expected patterns: %v",
+			expectedPlatformString, expectedPatterns)
+	}
+
+	// Validate that we got a reasonable binary size
+	if len(binaryData) < 1024 {
+		return nil, fmt.Errorf("extracted binary '%s' is too small (%d bytes), likely not a valid executable",
+			foundBinaryName, len(binaryData))
+	}
+
+	fmt.Printf("Successfully extracted binary '%s' (%d bytes) for platform %s\n",
+		foundBinaryName, len(binaryData), expectedPlatformString)
+
+	return bytes.NewReader(binaryData), nil
+}
+
+// extractFromZip extracts the correct architecture binary from a ZIP archive
+func (u *Updater) extractFromZip(reader io.Reader) (io.Reader, error) {
+	// Read all data into memory (required for zip.NewReader)
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read ZIP data: %w", err)
+	}
+
+	// Create zip reader
+	zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ZIP reader: %w", err)
+	}
+
+	// Get current platform info
+	currentOS := runtime.GOOS
+	currentArch := runtime.GOARCH
+
+	// Build the exact platform string we expect
+	expectedPlatformString := fmt.Sprintf("%s-%s", currentOS, currentArch)
+
+	// Alternative patterns we might encounter
+	expectedPatterns := []string{
+		fmt.Sprintf("ddalab-launcher-%s-%s.exe", currentOS, currentArch),
+		fmt.Sprintf("launcher-%s-%s.exe", currentOS, currentArch),
+		fmt.Sprintf("%s.exe", expectedPlatformString),
+		"ddalab-launcher.exe",
+		"launcher.exe",
+	}
+
+	var binaryData []byte
+	var foundBinaryName string
+
+	for _, file := range zipReader.File {
+		// Skip directories
+		if file.FileInfo().IsDir() {
+			continue
+		}
+
+		fileName := filepath.Base(file.Name)
+
+		// Check if this binary matches our current platform
+		isCorrectBinary := false
+
+		// First, check for exact pattern matches
+		for _, pattern := range expectedPatterns {
+			if fileName == pattern || strings.Contains(fileName, pattern) {
+				isCorrectBinary = true
+				foundBinaryName = fileName
+				break
+			}
+		}
+
+		// If no exact match, check if it's a generic launcher binary and contains our platform string
+		if !isCorrectBinary {
+			if (fileName == "ddalab-launcher.exe" || fileName == "launcher.exe") &&
+				strings.Contains(file.Name, expectedPlatformString) {
+				isCorrectBinary = true
+				foundBinaryName = fileName
+			}
+		}
+
+		// If this is the correct binary for our platform, extract it
+		if isCorrectBinary {
+			fileReader, err := file.Open()
+			if err != nil {
+				return nil, fmt.Errorf("failed to open file in ZIP: %w", err)
+			}
+			defer fileReader.Close()
+
+			binaryData, err = io.ReadAll(fileReader)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read binary from ZIP: %w", err)
+			}
+			break
+		}
+	}
+
+	if len(binaryData) == 0 {
+		return nil, fmt.Errorf("no binary found for platform %s in ZIP archive. Expected patterns: %v",
+			expectedPlatformString, expectedPatterns)
+	}
+
+	// Validate that we got a reasonable binary size
+	if len(binaryData) < 1024 {
+		return nil, fmt.Errorf("extracted binary '%s' is too small (%d bytes), likely not a valid executable",
+			foundBinaryName, len(binaryData))
+	}
+
+	fmt.Printf("Successfully extracted binary '%s' (%d bytes) for platform %s\n",
+		foundBinaryName, len(binaryData), expectedPlatformString)
+
+	return bytes.NewReader(binaryData), nil
 }
 
 // performUnixUpdate handles updates on Unix-like systems (macOS, Linux)
