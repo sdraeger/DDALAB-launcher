@@ -85,11 +85,17 @@ func (m *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
+			} else {
+				// Wrap to last item when at the top
+				m.cursor = len(m.items) - 1
 			}
 
 		case "down", "j":
 			if m.cursor < len(m.items)-1 {
 				m.cursor++
+			} else {
+				// Wrap to first item when at the bottom
+				m.cursor = 0
 			}
 
 		case "enter", " ":
