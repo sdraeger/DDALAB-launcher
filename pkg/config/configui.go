@@ -56,20 +56,20 @@ var (
 
 // ConfigEditorModel represents the configuration editor state
 type ConfigEditorModel struct {
-	config         *EnvConfig
-	cursor         int
-	editMode       bool
-	editingValue   string
-	editingKey     string
-	searchMode     bool
-	searchTerm     string
-	filteredVars   []EnvVar
-	originalVars   []EnvVar
-	width          int
-	height         int
-	saved          bool
-	message        string
-	showSecrets    bool
+	config       *EnvConfig
+	cursor       int
+	editMode     bool
+	editingValue string
+	editingKey   string
+	searchMode   bool
+	searchTerm   string
+	filteredVars []EnvVar
+	originalVars []EnvVar
+	width        int
+	height       int
+	saved        bool
+	message      string
+	showSecrets  bool
 }
 
 // NewConfigEditor creates a new configuration editor model
@@ -81,10 +81,10 @@ func NewConfigEditor(config *EnvConfig) *ConfigEditorModel {
 		width:        120,
 		height:       30,
 	}
-	
+
 	// Create a copy of original variables for comparison
 	copy(model.originalVars, config.Variables)
-	
+
 	return model
 }
 
@@ -104,7 +104,7 @@ func (m *ConfigEditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.editMode {
 			return m.handleEditMode(msg)
 		}
-		
+
 		if m.searchMode {
 			return m.handleSearchMode(msg)
 		}
@@ -257,7 +257,7 @@ func (m *ConfigEditorModel) filterVariables() {
 	} else {
 		m.filteredVars = []EnvVar{}
 		searchLower := strings.ToLower(m.searchTerm)
-		
+
 		for _, envVar := range m.config.Variables {
 			if strings.Contains(strings.ToLower(envVar.Key), searchLower) ||
 				strings.Contains(strings.ToLower(envVar.Value), searchLower) ||
@@ -267,7 +267,7 @@ func (m *ConfigEditorModel) filterVariables() {
 			}
 		}
 	}
-	
+
 	// Reset cursor if it's out of bounds
 	if m.cursor >= len(m.filteredVars) {
 		m.cursor = max(0, len(m.filteredVars)-1)
@@ -281,7 +281,7 @@ func (m *ConfigEditorModel) View() string {
 	// Title
 	title := titleStyle.Render("DDALAB Configuration Editor")
 	b.WriteString(title + "\n")
-	
+
 	// File path
 	b.WriteString(fmt.Sprintf("File: %s\n\n", m.config.FilePath))
 
@@ -312,7 +312,7 @@ func (m *ConfigEditorModel) View() string {
 	var currentSection string
 	for i := startIdx; i < endIdx; i++ {
 		envVar := m.filteredVars[i]
-		
+
 		// Show section headers
 		if envVar.Section != currentSection && envVar.Section != "" {
 			currentSection = envVar.Section
@@ -342,7 +342,7 @@ func (m *ConfigEditorModel) View() string {
 		}
 
 		// Format row
-		row := fmt.Sprintf("%-30s %-40s %-20s %s", 
+		row := fmt.Sprintf("%-30s %-40s %-20s %s",
 			truncate(envVar.Key, 28),
 			truncate(value, 38),
 			truncate(envVar.Section, 18),

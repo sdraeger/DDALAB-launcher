@@ -11,20 +11,20 @@ import (
 
 // EnvVar represents a single environment variable
 type EnvVar struct {
-	Key         string
-	Value       string
-	Comment     string
-	Section     string
-	IsRequired  bool
-	IsSecret    bool
-	Example     string
+	Key        string
+	Value      string
+	Comment    string
+	Section    string
+	IsRequired bool
+	IsSecret   bool
+	Example    string
 }
 
 // EnvConfig manages environment configuration
 type EnvConfig struct {
-	Variables   []EnvVar
-	FilePath    string
-	Sections    []string
+	Variables []EnvVar
+	FilePath  string
+	Sections  []string
 }
 
 // LoadEnvFile loads environment variables from a .env file
@@ -59,7 +59,7 @@ func LoadEnvFile(filePath string) (*EnvConfig, error) {
 		// Handle comments
 		if strings.HasPrefix(line, "#") {
 			comment := strings.TrimSpace(strings.TrimPrefix(line, "#"))
-			
+
 			// Check for section headers (comments with ===)
 			if strings.Contains(comment, "===") {
 				sectionName := strings.Trim(comment, "= ")
@@ -70,7 +70,7 @@ func LoadEnvFile(filePath string) (*EnvConfig, error) {
 				currentComment = ""
 				continue
 			}
-			
+
 			// Accumulate comments
 			if currentComment != "" {
 				currentComment += " " + comment
@@ -152,7 +152,7 @@ func (c *EnvConfig) SaveEnvFile() error {
 
 	// Write sections in order
 	writtenSections := make(map[string]bool)
-	
+
 	// First write known sections in order
 	for _, section := range c.Sections {
 		if vars, exists := sectionVars[section]; exists {
@@ -237,28 +237,28 @@ func (c *EnvConfig) RemoveVariable(key string) bool {
 
 func isRequiredVar(key, value string) bool {
 	requiredVars := []string{
-		"DB_PASSWORD", "MINIO_ROOT_PASSWORD", "JWT_SECRET_KEY", 
+		"DB_PASSWORD", "MINIO_ROOT_PASSWORD", "JWT_SECRET_KEY",
 		"NEXTAUTH_SECRET", "DOMAIN", "PUBLIC_URL",
 	}
-	
+
 	for _, required := range requiredVars {
 		if key == required {
 			return true
 		}
 	}
-	
+
 	// Check for placeholder values
 	placeholders := []string{
 		"CHANGE_ME", "GENERATE_WITH", "YOUR_", "EXAMPLE_",
 	}
-	
+
 	upperValue := strings.ToUpper(value)
 	for _, placeholder := range placeholders {
 		if strings.Contains(upperValue, placeholder) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -266,14 +266,14 @@ func isSecretVar(key string) bool {
 	secretKeys := []string{
 		"PASSWORD", "SECRET", "KEY", "TOKEN", "BIND_PASSWORD",
 	}
-	
+
 	upperKey := strings.ToUpper(key)
 	for _, secret := range secretKeys {
 		if strings.Contains(upperKey, secret) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

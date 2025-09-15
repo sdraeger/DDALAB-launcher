@@ -111,7 +111,15 @@ make lint
 
 # Vet code
 make vet
+
+# Run all pre-commit checks (format, vet, lint)
+make pre-commit
+
+# Check if code is properly formatted (for CI)
+make check-fmt
 ```
+
+**Important**: Always run `make pre-commit` before committing changes to ensure code quality.
 
 ## Configuration
 

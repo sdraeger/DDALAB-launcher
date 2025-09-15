@@ -21,9 +21,9 @@ var (
 			Padding(0, 1)
 
 	selectedItemStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("57")).
-			Foreground(lipgloss.Color("230")).
-			Padding(0, 1)
+				Background(lipgloss.Color("57")).
+				Foreground(lipgloss.Color("230")).
+				Padding(0, 1)
 
 	normalItemStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252")).
@@ -45,14 +45,14 @@ var (
 
 // MenuModel represents a selection menu
 type MenuModel struct {
-	title       string
-	items       []string
-	cursor      int
-	selected    int
-	choice      string
-	cancelled   bool
-	width       int
-	height      int
+	title     string
+	items     []string
+	cursor    int
+	selected  int
+	choice    string
+	cancelled bool
+	width     int
+	height    int
 }
 
 // NewMenuModel creates a new menu model
@@ -136,15 +136,15 @@ func (m *MenuModel) View() string {
 
 // PromptModel represents a text input prompt
 type PromptModel struct {
-	title        string
-	placeholder  string
-	value        string
-	validate     func(string) error
-	cancelled    bool
-	errorMsg     string
-	cursorPos    int
-	width        int
-	height       int
+	title       string
+	placeholder string
+	value       string
+	validate    func(string) error
+	cancelled   bool
+	errorMsg    string
+	cursorPos   int
+	width       int
+	height      int
 }
 
 // NewPromptModel creates a new prompt model

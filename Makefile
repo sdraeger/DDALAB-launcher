@@ -1,4 +1,4 @@
-.PHONY: build run clean test install deps
+.PHONY: build run clean test install deps fmt lint vet pre-commit pre-commit-quick check-fmt
 
 # Binary name
 BINARY_NAME=ddalab-launcher
@@ -70,12 +70,41 @@ dev:
 
 # Format code
 fmt:
+	@echo "Formatting Go code..."
 	go fmt ./...
+	@echo "Code formatted successfully!"
 
 # Lint code
 lint:
-	golangci-lint run
+	@echo "Running linter..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+		echo "Linting completed!"; \
+	else \
+		echo "golangci-lint not found locally. Install it or run in CI for linting."; \
+		echo "To install: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b \$$(go env GOPATH)/bin"; \
+	fi
 
 # Vet code
 vet:
+	@echo "Running go vet..."
 	go vet ./...
+	@echo "Vet completed!"
+
+# Pre-commit checks - run before committing
+pre-commit: fmt vet lint
+	@echo "Pre-commit checks completed successfully!"
+
+# Quick pre-commit checks (without golangci-lint)
+pre-commit-quick: fmt vet
+	@echo "Quick pre-commit checks completed successfully!"
+
+# Check if code is properly formatted
+check-fmt:
+	@echo "Checking code formatting..."
+	@if [ "$$(gofmt -l . | wc -l)" -gt 0 ]; then \
+		echo "Code is not properly formatted. Please run 'make fmt'"; \
+		gofmt -l .; \
+		exit 1; \
+	fi
+	@echo "Code formatting is correct!"

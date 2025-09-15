@@ -380,10 +380,10 @@ func (l *Launcher) handleEditConfigCommand() error {
 		if strings.Contains(err.Error(), ".env.example exists") {
 			l.ui.ShowWarning("No .env file found!")
 			l.ui.ShowInfo("You need to create a .env file first from the .env.example template.")
-			
+
 			examplePath := strings.Replace(envPath, ".env", ".env.example", 1)
 			l.ui.ShowInfo(fmt.Sprintf("Example file location: %s", examplePath))
-			
+
 			if l.ui.ConfirmOperation("copy .env.example to .env now") {
 				if copyErr := config.CopyFile(examplePath, envPath); copyErr != nil {
 					return fmt.Errorf("failed to copy .env.example: %w", copyErr)
