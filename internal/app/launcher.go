@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/ddalab/launcher/pkg/commands"
 	"github.com/ddalab/launcher/pkg/config"
@@ -162,6 +163,8 @@ func (l *Launcher) handleMenuChoice(choice string) error {
 		return l.handleStatusCommand()
 	case "View Logs":
 		return l.handleLogsCommand()
+	case "Edit Configuration":
+		return l.handleEditConfigCommand()
 	case "Configure Installation":
 		return l.handleConfigureCommand()
 	case "Backup Database":
@@ -364,6 +367,52 @@ func (l *Launcher) handleUninstallCommand() error {
 
 	l.ui.ShowSuccess("DDALAB uninstalled successfully!")
 	l.ui.ShowInfo("You can safely delete the DDALAB-setup directory if no longer needed")
+
+	return nil
+}
+
+// handleEditConfigCommand opens the configuration editor
+func (l *Launcher) handleEditConfigCommand() error {
+	// Find the .env file in the DDALAB installation
+	ddalabPath := l.configManager.GetDDALABPath()
+	envPath, err := config.GetEnvFilePath(ddalabPath)
+	if err != nil {
+		if strings.Contains(err.Error(), ".env.example exists") {
+			l.ui.ShowWarning("No .env file found!")
+			l.ui.ShowInfo("You need to create a .env file first from the .env.example template.")
+			
+			examplePath := strings.Replace(envPath, ".env", ".env.example", 1)
+			l.ui.ShowInfo(fmt.Sprintf("Example file location: %s", examplePath))
+			
+			if l.ui.ConfirmOperation("copy .env.example to .env now") {
+				if copyErr := config.CopyFile(examplePath, envPath); copyErr != nil {
+					return fmt.Errorf("failed to copy .env.example: %w", copyErr)
+				}
+				l.ui.ShowSuccess("Created .env file from template")
+			} else {
+				return nil
+			}
+		} else {
+			return fmt.Errorf("could not find .env file: %w", err)
+		}
+	}
+
+	l.ui.ShowInfo(fmt.Sprintf("Opening configuration editor for: %s", envPath))
+	l.ui.ShowInfo("Use arrow keys to navigate, Enter to edit, / to search, s to save, q to quit")
+	l.ui.WaitForUser("Press Enter to open editor...")
+
+	// Clear screen before launching editor
+	fmt.Print("\033[2J\033[H")
+
+	// Run the configuration editor
+	if err := config.RunConfigEditor(envPath); err != nil {
+		return fmt.Errorf("configuration editor failed: %w", err)
+	}
+
+	// Clear screen and show completion message
+	fmt.Print("\033[2J\033[H")
+	l.ui.ShowSuccess("Configuration editor closed")
+	l.ui.ShowInfo("If you made changes, you may need to restart DDALAB for them to take effect")
 
 	return nil
 }

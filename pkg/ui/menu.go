@@ -66,6 +66,7 @@ func (m *MenuManager) GetMainMenuOptions() []MenuOption {
 		{Label: "Restart DDALAB", Action: "restart", Icon: "🔄", Description: "Restart all DDALAB services"},
 		{Label: "Check Status", Action: "status", Icon: "📊", Description: "Check service status and health"},
 		{Label: "View Logs", Action: "logs", Icon: "📋", Description: "View recent service logs"},
+		{Label: "Edit Configuration", Action: "edit-config", Icon: "📝", Description: "Edit environment variables and settings"},
 		{Label: "Configure Installation", Action: "configure", Icon: "⚙️", Description: "Change DDALAB installation path"},
 		{Label: "Backup Database", Action: "backup", Icon: "💾", Description: "Create database backup"},
 		{Label: "Update DDALAB", Action: "update", Icon: "⬆️", Description: "Update to latest version"},
