@@ -153,11 +153,23 @@ jobs:
         # Build for Windows (arm64)
         GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-windows-arm64.exe cmd/launcher/main.go
         
-        echo "Build completed. Verifying binaries contain correct version..."
+        echo "Build completed. Setting executable permissions for Unix binaries..."
         
-        # Verify Linux binary contains correct version
+        # Set executable permissions for Unix binaries (Linux and macOS)
+        chmod +x build/ddalab-launcher-v${VERSION}-linux-amd64
+        chmod +x build/ddalab-launcher-v${VERSION}-linux-arm64
+        chmod +x build/ddalab-launcher-v${VERSION}-darwin-amd64
+        chmod +x build/ddalab-launcher-v${VERSION}-darwin-arm64
+        
+        echo "Verifying binaries contain correct version and are executable..."
+        
+        # Verify Linux binary contains correct version and is executable
         echo "Linux amd64 version check:"
         ./build/ddalab-launcher-v${VERSION}-linux-amd64 --version || echo "Version check failed for Linux binary"
+        
+        # Check file permissions
+        echo "File permissions:"
+        ls -la build/
 
     - name: Create release archives
       run: |
@@ -181,6 +193,17 @@ jobs:
         
         # Create zip for Windows arm64
         zip ddalab-launcher-v${VERSION}-windows-arm64.zip ddalab-launcher-v${VERSION}-windows-arm64.exe
+        
+        echo "Verifying archive contents and permissions..."
+        
+        # Test that tar preserves executable permissions
+        echo "Testing tar archive extraction (Linux amd64):"
+        mkdir -p test_extract
+        tar -xzf ddalab-launcher-v${VERSION}-linux-amd64.tar.gz -C test_extract
+        ls -la test_extract/
+        
+        # Cleanup test directory
+        rm -rf test_extract
 
     - name: Generate checksums
       run: |
@@ -235,8 +258,9 @@ jobs:
           ### 📖 Installation
           1. Download the appropriate archive for your platform
           2. Extract the archive: `tar -xzf ddalab-launcher-v${{ steps.version.outputs.version }}-<platform>.tar.gz` (Linux/macOS) or unzip (Windows)
-          3. Make executable (Linux/macOS): `chmod +x ddalab-launcher-v${{ steps.version.outputs.version }}-*`
-          4. Run: `./ddalab-launcher-v${{ steps.version.outputs.version }}-<platform>`
+          3. Run: `./ddalab-launcher-v${{ steps.version.outputs.version }}-<platform>`
+          
+          **Note**: Unix binaries (Linux/macOS) come with executable permissions pre-set. No `chmod +x` required!
           
           ### 🐛 Issues
           Report issues at: https://github.com/sdraeger/DDALAB-launcher/issues

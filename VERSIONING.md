@@ -144,9 +144,14 @@ go test ./...
 # Build for your platform
 go build cmd/launcher/main.go
 
+# Make executable (if needed locally)
+chmod +x main
+
 # Test the binary
 ./main --version
 ```
+
+**Note**: Release binaries automatically have executable permissions set for Unix platforms.
 
 ### 4. Review Release Notes
 Each release includes auto-generated notes. The workflow will show:
