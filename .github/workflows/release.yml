@@ -141,11 +141,11 @@ jobs:
         # Build for Linux (arm64)
         GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-linux-arm64 cmd/launcher/main.go
         
-        # Build for macOS (amd64)
-        GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-darwin-amd64 cmd/launcher/main.go
+        # Build for macOS (amd64) - Add .command extension for better macOS recognition
+        GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-darwin-amd64.command cmd/launcher/main.go
         
-        # Build for macOS (arm64 - Apple Silicon)
-        GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-darwin-arm64 cmd/launcher/main.go
+        # Build for macOS (arm64 - Apple Silicon) - Add .command extension for better macOS recognition  
+        GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-darwin-arm64.command cmd/launcher/main.go
         
         # Build for Windows (amd64)
         GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-windows-amd64.exe cmd/launcher/main.go
@@ -158,8 +158,8 @@ jobs:
         # Set executable permissions for Unix binaries (Linux and macOS)
         chmod +x build/ddalab-launcher-v${VERSION}-linux-amd64
         chmod +x build/ddalab-launcher-v${VERSION}-linux-arm64
-        chmod +x build/ddalab-launcher-v${VERSION}-darwin-amd64
-        chmod +x build/ddalab-launcher-v${VERSION}-darwin-arm64
+        chmod +x build/ddalab-launcher-v${VERSION}-darwin-amd64.command
+        chmod +x build/ddalab-launcher-v${VERSION}-darwin-arm64.command
         
         echo "Verifying binaries contain correct version and are executable..."
         
@@ -183,10 +183,10 @@ jobs:
         tar -czf ddalab-launcher-v${VERSION}-linux-arm64.tar.gz ddalab-launcher-v${VERSION}-linux-arm64
         
         # Create tarball for macOS amd64
-        tar -czf ddalab-launcher-v${VERSION}-darwin-amd64.tar.gz ddalab-launcher-v${VERSION}-darwin-amd64
+        tar -czf ddalab-launcher-v${VERSION}-darwin-amd64.tar.gz ddalab-launcher-v${VERSION}-darwin-amd64.command
         
         # Create tarball for macOS arm64
-        tar -czf ddalab-launcher-v${VERSION}-darwin-arm64.tar.gz ddalab-launcher-v${VERSION}-darwin-arm64
+        tar -czf ddalab-launcher-v${VERSION}-darwin-arm64.tar.gz ddalab-launcher-v${VERSION}-darwin-arm64.command
         
         # Create zip for Windows amd64
         zip ddalab-launcher-v${VERSION}-windows-amd64.zip ddalab-launcher-v${VERSION}-windows-amd64.exe
@@ -256,11 +256,24 @@ jobs:
           ```
           
           ### 📖 Installation
-          1. Download the appropriate archive for your platform
-          2. Extract the archive: `tar -xzf ddalab-launcher-v${{ steps.version.outputs.version }}-<platform>.tar.gz` (Linux/macOS) or unzip (Windows)
-          3. Run: `./ddalab-launcher-v${{ steps.version.outputs.version }}-<platform>`
           
-          **Note**: Unix binaries (Linux/macOS) come with executable permissions pre-set. No `chmod +x` required!
+          #### Linux
+          1. Download: `ddalab-launcher-v${{ steps.version.outputs.version }}-linux-<arch>.tar.gz`
+          2. Extract: `tar -xzf ddalab-launcher-v${{ steps.version.outputs.version }}-linux-<arch>.tar.gz`
+          3. Run: `./ddalab-launcher-v${{ steps.version.outputs.version }}-linux-<arch>`
+          
+          #### macOS
+          1. Download: `ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.tar.gz`
+          2. Extract: `tar -xzf ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.tar.gz`
+          3. **First run**: Right-click → "Open" → "Open" (to bypass security warning)
+          4. **Subsequent runs**: Double-click or `./ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.command`
+          
+          **macOS Security Note**: Since the binary is unsigned, macOS will show a security warning on first run. This is normal for open-source software.
+          
+          #### Windows
+          1. Download: `ddalab-launcher-v${{ steps.version.outputs.version }}-windows-<arch>.zip`
+          2. Extract the zip file
+          3. Run: `ddalab-launcher-v${{ steps.version.outputs.version }}-windows-<arch>.exe`
           
           ### 🐛 Issues
           Report issues at: https://github.com/sdraeger/DDALAB-launcher/issues

@@ -152,6 +152,12 @@ An installation is considered valid if it contains:
 - Prefers `ddalab.ps1` (PowerShell) over `ddalab.bat`
 - PowerShell scripts run with bypass execution policy
 
+### macOS Security Notes
+- Binaries use `.command` extension for better system recognition
+- First run requires: Right-click → "Open" → "Open" (bypasses Gatekeeper)
+- Subsequent runs work normally (double-click or terminal)
+- This is standard for unsigned open-source applications
+
 ## Versioning and Releases
 
 The DDALAB Launcher uses **automatic semantic versioning** with GitHub Actions:
