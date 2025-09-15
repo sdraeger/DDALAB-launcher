@@ -6,6 +6,14 @@ import (
 	"path/filepath"
 )
 
+// Version is injected at build time
+var Version = "dev"
+
+// GetVersion returns the current version
+func GetVersion() string {
+	return Version
+}
+
 // LauncherConfig holds the persistent state of the launcher
 type LauncherConfig struct {
 	DDALABPath    string `json:"ddalab_path"`
@@ -33,7 +41,7 @@ func NewConfigManager() (*ConfigManager, error) {
 		configPath: configPath,
 		config: &LauncherConfig{
 			FirstRun: true,
-			Version:  "1.0.0",
+			Version:  GetVersion(),
 		},
 	}
 

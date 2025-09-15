@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -10,7 +11,21 @@ import (
 	"github.com/ddalab/launcher/internal/terminal"
 )
 
+// Version is set by build flags
+var version = "dev"
+
 func main() {
+	// Handle version flag
+	var showVersion = flag.Bool("version", false, "Show version information")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("DDALAB Launcher v%s\n", version)
+		fmt.Printf("Built with %s\n", runtime.Version())
+		fmt.Printf("Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		os.Exit(0)
+	}
+
 	// Check if we're running in a terminal
 	if !terminal.IsTerminal() {
 		// Try to relaunch in a terminal

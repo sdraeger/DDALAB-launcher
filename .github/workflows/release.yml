@@ -1,0 +1,226 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version increment type'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Install staticcheck
+      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+    - name: Run staticcheck
+      run: staticcheck ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Calculate version
+      id: version
+      run: |
+        # Get the latest tag, if any
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "Latest tag: $LATEST_TAG"
+        
+        # Extract version numbers
+        VERSION=${LATEST_TAG#v}
+        IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+        MAJOR=${VERSION_PARTS[0]:-0}
+        MINOR=${VERSION_PARTS[1]:-0}
+        PATCH=${VERSION_PARTS[2]:-0}
+        
+        # Determine increment type
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          INCREMENT_TYPE="${{ github.event.inputs.version_type }}"
+        else
+          INCREMENT_TYPE="minor"
+        fi
+        
+        # Increment version based on type
+        case $INCREMENT_TYPE in
+          major)
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          minor)
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          patch)
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+        
+        NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+        NEW_TAG="v${NEW_VERSION}"
+        
+        echo "New version: $NEW_VERSION"
+        echo "New tag: $NEW_TAG"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+    - name: Build for multiple platforms
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        LDFLAGS="-X main.version=$VERSION -X github.com/ddalab/launcher/pkg/config.Version=$VERSION"
+        
+        # Create build directory
+        mkdir -p build
+        
+        # Build for Linux (amd64)
+        GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-linux-amd64 cmd/launcher/main.go
+        
+        # Build for Linux (arm64)
+        GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-linux-arm64 cmd/launcher/main.go
+        
+        # Build for macOS (amd64)
+        GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-darwin-amd64 cmd/launcher/main.go
+        
+        # Build for macOS (arm64 - Apple Silicon)
+        GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-darwin-arm64 cmd/launcher/main.go
+        
+        # Build for Windows (amd64)
+        GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-windows-amd64.exe cmd/launcher/main.go
+        
+        # Build for Windows (arm64)
+        GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-windows-arm64.exe cmd/launcher/main.go
+
+    - name: Create release archives
+      run: |
+        cd build
+        
+        # Create tarball for Linux amd64
+        tar -czf ddalab-launcher-linux-amd64.tar.gz ddalab-launcher-linux-amd64
+        
+        # Create tarball for Linux arm64
+        tar -czf ddalab-launcher-linux-arm64.tar.gz ddalab-launcher-linux-arm64
+        
+        # Create tarball for macOS amd64
+        tar -czf ddalab-launcher-darwin-amd64.tar.gz ddalab-launcher-darwin-amd64
+        
+        # Create tarball for macOS arm64
+        tar -czf ddalab-launcher-darwin-arm64.tar.gz ddalab-launcher-darwin-arm64
+        
+        # Create zip for Windows amd64
+        zip ddalab-launcher-windows-amd64.zip ddalab-launcher-windows-amd64.exe
+        
+        # Create zip for Windows arm64
+        zip ddalab-launcher-windows-arm64.zip ddalab-launcher-windows-arm64.exe
+
+    - name: Generate checksums
+      run: |
+        cd build
+        sha256sum *.tar.gz *.zip > checksums.txt
+        cat checksums.txt
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: Release ${{ steps.version.outputs.tag }}
+        body: |
+          ## DDALAB Launcher ${{ steps.version.outputs.version }}
+          
+          ### 🚀 Features
+          - Cross-platform DDALAB management tool
+          - Interactive menu system with promptui
+          - Interrupt support for long-running operations (Ctrl+C)
+          - Auto-detection of DDALAB installations
+          - Status monitoring and log viewing
+          
+          ### 📦 Downloads
+          
+          Choose the appropriate binary for your platform:
+          
+          **Linux:**
+          - `ddalab-launcher-linux-amd64.tar.gz` - For Intel/AMD 64-bit systems
+          - `ddalab-launcher-linux-arm64.tar.gz` - For ARM 64-bit systems (e.g., Raspberry Pi)
+          
+          **macOS:**
+          - `ddalab-launcher-darwin-amd64.tar.gz` - For Intel Macs
+          - `ddalab-launcher-darwin-arm64.tar.gz` - For Apple Silicon Macs (M1/M2)
+          
+          **Windows:**
+          - `ddalab-launcher-windows-amd64.zip` - For Intel/AMD 64-bit systems
+          - `ddalab-launcher-windows-arm64.zip` - For ARM 64-bit systems
+          
+          ### 🔐 Verification
+          Use the `checksums.txt` file to verify the integrity of your download:
+          ```bash
+          sha256sum -c checksums.txt
+          ```
+          
+          ### 📖 Installation
+          1. Download the appropriate archive for your platform
+          2. Extract the archive: `tar -xzf <filename>.tar.gz` (Linux/macOS) or unzip (Windows)
+          3. Make executable (Linux/macOS): `chmod +x ddalab-launcher-*`
+          4. Run: `./ddalab-launcher-*`
+          
+          ### 🐛 Issues
+          Report issues at: https://github.com/sdraeger/DDALAB-launcher/issues
+        files: |
+          build/*.tar.gz
+          build/*.zip
+          build/checksums.txt
+        generate_release_notes: false
+        draft: false
+        prerelease: false
+
+  update-submodule:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+    - name: Trigger submodule update in main repository
+      run: |
+        echo "New launcher version ${{ needs.build.outputs.version }} released"
+        echo "Tag: ${{ needs.build.outputs.tag }}"
+        # Future: Could trigger a workflow in the main DDALAB repository to update the submodule

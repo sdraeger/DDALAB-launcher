@@ -1,0 +1,40 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Install staticcheck
+      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+    - name: Run staticcheck
+      run: staticcheck ./...
+
+    - name: Test builds
+      run: |
+        # Test that builds work for all platforms
+        GOOS=linux GOARCH=amd64 go build cmd/launcher/main.go
+        GOOS=darwin GOARCH=amd64 go build cmd/launcher/main.go
+        GOOS=windows GOARCH=amd64 go build cmd/launcher/main.go
