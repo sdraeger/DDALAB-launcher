@@ -1,0 +1,220 @@
+# DDALAB Launcher
+
+A user-friendly Go launcher for DDALAB (Delay Differential Analysis Laboratory) that simplifies deployment and management for non-technical users.
+
+## Features
+
+- 🔍 **Auto-detection**: Automatically finds DDALAB installations on your system
+- 💾 **State Persistence**: Remembers your configuration in `~/.ddalab-launcher`
+- 🎯 **Simple Interface**: Interactive prompts using `promptui` for easy navigation
+- 🚀 **One-click Operations**: Start, stop, restart, backup, and update DDALAB
+- 🖥️ **Cross-platform**: Works on Linux, macOS, and Windows
+- 📊 **Status Monitoring**: Check service health and view logs
+- ⚙️ **Easy Configuration**: Configure DDALAB installation path with validation
+- ⚡ **Interrupt Support**: Cancel long-running operations with Ctrl+C
+
+## Quick Start
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- An existing DDALAB installation (from DDALAB-setup)
+
+### Installation
+
+1. **Download and build**:
+   ```bash
+   git clone <repository>
+   cd launcher
+   make build
+   ```
+
+2. **Run the launcher**:
+   ```bash
+   ./bin/ddalab-launcher
+   ```
+
+3. **First-time setup**:
+   - The launcher will welcome you and search for DDALAB installations
+   - Select an existing installation or configure a custom path
+   - Choose whether to start DDALAB immediately
+
+### Usage
+
+The launcher can be run in two ways:
+
+1. **Double-click the executable**: The launcher will automatically open a terminal window
+2. **Run from terminal**: `./bin/ddalab-launcher`
+
+After the initial setup, the launcher provides these options:
+
+- **Start DDALAB** - Start all services
+- **Stop DDALAB** - Stop all services with confirmation
+- **Restart DDALAB** - Restart all services
+- **Check Status** - View service status and health
+- **View Logs** - Display recent service logs (cancellable with Ctrl+C)
+- **Configure Installation** - Change DDALAB installation path
+- **Backup Database** - Create a database backup
+- **Update DDALAB** - Pull latest images and restart (cancellable with Ctrl+C)
+- **Uninstall DDALAB** - Remove all services and data (with double confirmation)
+- **Exit** - Close the launcher
+
+## Project Structure
+
+```
+launcher/
+├── cmd/launcher/          # Main application entry point
+├── internal/app/          # Application logic
+├── pkg/
+│   ├── config/           # Configuration management
+│   ├── commands/         # DDALAB operations
+│   ├── detector/         # Installation detection
+│   ├── interrupt/        # Signal handling for graceful cancellation
+│   └── ui/              # User interface
+├── Makefile             # Build automation
+└── README.md           # This file
+```
+
+## Development
+
+### Building
+
+```bash
+# Build for current platform
+make build
+
+# Build for all platforms
+make build-all
+
+# Development mode (auto-rebuild)
+make dev
+```
+
+### Testing
+
+```bash
+# Run tests
+make test
+
+# Run tests with coverage
+make test-coverage
+```
+
+### Code Quality
+
+```bash
+# Format code
+make fmt
+
+# Lint code (requires golangci-lint)
+make lint
+
+# Vet code
+make vet
+```
+
+## Configuration
+
+The launcher stores its configuration in `~/.ddalab-launcher` as JSON:
+
+```json
+{
+  "ddalab_path": "/path/to/DDALAB-setup",
+  "first_run": false,
+  "last_operation": "start",
+  "version": "1.0.0"
+}
+```
+
+## Installation Detection
+
+The launcher searches for DDALAB installations in these locations:
+
+- `~/DDALAB-setup`
+- `~/Desktop/DDALAB-setup`
+- `~/Downloads/DDALAB-setup`
+- `/opt/DDALAB-setup`
+- `/usr/local/DDALAB-setup`
+- `../DDALAB-setup` (relative to current directory)
+
+An installation is considered valid if it contains:
+- `docker-compose.yml`
+- `README.md`
+- Platform-specific script (`ddalab.sh`, `ddalab.ps1`, or `ddalab.bat`)
+
+## Cross-Platform Support
+
+### Linux/macOS
+- Uses `ddalab.sh` script
+- Commands executed with `bash`
+
+### Windows
+- Prefers `ddalab.ps1` (PowerShell) over `ddalab.bat`
+- PowerShell scripts run with bypass execution policy
+
+## Error Handling
+
+The launcher includes comprehensive error handling:
+
+- Installation validation before operations
+- Docker availability checks
+- Graceful fallbacks for missing components
+- User-friendly error messages
+- Safe operation confirmations for destructive actions
+- Interrupt handling for long-running operations (Ctrl+C support)
+- Automatic return to main menu after cancellation
+
+## Dependencies
+
+- **promptui**: Interactive command-line prompts
+- **Go standard library**: File operations, exec, etc.
+
+## Building Binaries
+
+Create distribution binaries:
+
+```bash
+make build-all
+```
+
+This creates binaries for:
+- Linux (amd64)
+- macOS (amd64, arm64)
+- Windows (amd64)
+
+### Platform-Specific Builds
+
+#### macOS App Bundle
+```bash
+make build-macos-app
+```
+Creates a double-clickable `.app` bundle for macOS.
+
+#### Release Builds
+```bash
+./scripts/build-release.sh
+```
+Creates release archives for all platforms with proper packaging.
+
+## Double-Click Support
+
+The launcher includes special handling for double-click execution:
+
+- **macOS**: Opens Terminal.app and runs the launcher
+- **Linux**: Tries common terminal emulators (gnome-terminal, konsole, xterm, etc.)
+- **Windows**: Opens Windows Terminal or cmd.exe
+
+If no terminal can be opened, a GUI error dialog is displayed with instructions.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass
+6. Submit a pull request
+
+## License
+
+This project follows the same license as the main DDALAB project.
