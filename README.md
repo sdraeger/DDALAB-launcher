@@ -9,7 +9,7 @@ A user-friendly Go launcher for DDALAB (Delay Differential Analysis Laboratory) 
 - 🎯 **Simple Interface**: Modern terminal UI using `bubbletea` for intuitive navigation
 - 🚀 **One-click Operations**: Start, stop, restart, backup, and update DDALAB
 - 🖥️ **Cross-platform**: Works on Linux, macOS, and Windows
-- 📊 **Status Monitoring**: Check service health and view logs
+- 📊 **Status Monitoring**: Live status display and detailed service health checks
 - ⚙️ **Easy Configuration**: Configure DDALAB installation path with validation
 - ⚡ **Interrupt Support**: Cancel long-running operations with Ctrl+C
 
@@ -59,6 +59,16 @@ After the initial setup, the launcher provides these options:
 - **Check for Launcher Updates** - Check for and install launcher updates
 - **Uninstall DDALAB** - Remove all services and data (with double confirmation)
 - **Exit** - Close the launcher
+
+### Live Status Display
+
+The launcher shows a real-time status indicator in the main menu:
+- 🟢 **Up** - DDALAB is running and healthy
+- 🔴 **Down** - DDALAB is not running
+- 🟡 **Starting** - DDALAB is starting up
+- ⚪ **Unknown** - Status cannot be determined (not configured)
+
+The status updates automatically every 5 seconds and immediately after operations.
 
 ## Project Structure
 

@@ -10,6 +10,7 @@ import (
 	"github.com/ddalab/launcher/pkg/config"
 	"github.com/ddalab/launcher/pkg/detector"
 	"github.com/ddalab/launcher/pkg/interrupt"
+	"github.com/ddalab/launcher/pkg/status"
 	"github.com/ddalab/launcher/pkg/ui"
 	"github.com/ddalab/launcher/pkg/updater"
 )
@@ -21,6 +22,7 @@ type Launcher struct {
 	ui               *ui.UI
 	commander        *commands.Commander
 	interruptHandler *interrupt.Handler
+	statusMonitor    *status.Monitor
 }
 
 // NewLauncher creates a new launcher instance
@@ -34,6 +36,7 @@ func NewLauncher() (*Launcher, error) {
 	ui := ui.NewUI(configManager, detector)
 	commander := commands.NewCommander(configManager)
 	interruptHandler := interrupt.NewHandler()
+	statusMonitor := status.NewMonitor(commander)
 
 	return &Launcher{
 		configManager:    configManager,
@@ -41,6 +44,7 @@ func NewLauncher() (*Launcher, error) {
 		ui:               ui,
 		commander:        commander,
 		interruptHandler: interruptHandler,
+		statusMonitor:    statusMonitor,
 	}, nil
 }
 
@@ -91,6 +95,12 @@ func (l *Launcher) runFirstTimeSetup() error {
 
 // runMainLoop handles the main menu loop with enhanced error handling
 func (l *Launcher) runMainLoop() error {
+	// Start status monitoring if DDALAB is configured
+	if l.configManager.GetDDALABPath() != "" {
+		l.statusMonitor.Start()
+		defer l.statusMonitor.Stop()
+	}
+
 	// Check for launcher updates on startup (background check)
 	l.checkForUpdatesOnStartup()
 
@@ -98,7 +108,7 @@ func (l *Launcher) runMainLoop() error {
 		// Clear screen for better UX
 		fmt.Print("\033[2J\033[H")
 
-		choice, err := l.ui.ShowMainMenu()
+		choice, err := l.ui.ShowMainMenuWithStatus(l.statusMonitor)
 		if err != nil {
 			// Handle user cancellation gracefully
 			if err.Error() == "^C" || err.Error() == "interrupt" {
@@ -207,6 +217,9 @@ func (l *Launcher) handleStartCommand() error {
 
 		l.ui.ShowSuccess("DDALAB started successfully!")
 		l.ui.ShowInfo("Access DDALAB at: https://localhost")
+
+		// Refresh status after starting
+		l.statusMonitor.CheckNow()
 		return nil
 	})
 }
@@ -223,6 +236,9 @@ func (l *Launcher) handleStopCommand() error {
 	}
 
 	l.ui.ShowSuccess("DDALAB stopped successfully!")
+
+	// Refresh status after stopping
+	l.statusMonitor.CheckNow()
 	return nil
 }
 
@@ -238,6 +254,9 @@ func (l *Launcher) handleRestartCommand() error {
 	}
 
 	l.ui.ShowSuccess("DDALAB restarted successfully!")
+
+	// Refresh status after restarting
+	l.statusMonitor.CheckNow()
 	return nil
 }
 
@@ -319,6 +338,13 @@ func (l *Launcher) handleConfigureCommand() error {
 
 	l.ui.ShowSuccess("Configuration updated successfully!")
 	l.ui.ShowInfo(fmt.Sprintf("New installation path: %s", ddalabPath))
+
+	// Start status monitoring now that we have a valid installation
+	if !l.statusMonitor.IsRunning() {
+		l.statusMonitor.Start()
+	}
+	l.statusMonitor.CheckNow()
+
 	return nil
 }
 

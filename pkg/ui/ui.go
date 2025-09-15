@@ -32,11 +32,24 @@ func (ui *UI) ShowWelcome() {
 
 // ShowMainMenu displays the main menu for existing users
 func (ui *UI) ShowMainMenu() (string, error) {
+	return ui.ShowMainMenuWithStatus(nil)
+}
+
+// ShowMainMenuWithStatus displays the main menu with live status
+func (ui *UI) ShowMainMenuWithStatus(statusMonitor any) (string, error) {
 	config := ui.configManager.GetConfig()
 
 	fmt.Printf("\n🚀 DDALAB Launcher v%s\n", config.Version)
 	if config.DDALABPath != "" {
 		fmt.Printf("📂 Installation: %s\n", config.DDALABPath)
+	}
+
+	// Display status if monitor is provided
+	if statusMonitor != nil {
+		// Use any to avoid circular import, then type assert
+		if monitor, ok := statusMonitor.(interface{ FormatStatus() string }); ok {
+			fmt.Printf("📊 DDALAB Status: %s\n", monitor.FormatStatus())
+		}
 	}
 
 	menuManager := NewMenuManager(ui)
