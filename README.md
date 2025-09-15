@@ -152,6 +152,23 @@ An installation is considered valid if it contains:
 - Prefers `ddalab.ps1` (PowerShell) over `ddalab.bat`
 - PowerShell scripts run with bypass execution policy
 
+## Versioning and Releases
+
+The DDALAB Launcher uses **automatic semantic versioning** with GitHub Actions:
+
+- **Patch increment** (default): `v0.1.0` → `v0.1.1` on every push
+- **Minor increment**: Use `[feature]`, `[minor]`, or `feat:` in commit messages
+- **Major increment**: Use `[major]`, `[breaking]`, or `breaking:` in commit messages
+
+For detailed versioning control, see [VERSIONING.md](VERSIONING.md).
+
+### Example Version Control
+```bash
+git commit -m "Fix status check timeout"        # → v0.1.1 (patch)
+git commit -m "[feature] Add log filtering"     # → v0.2.0 (minor)  
+git commit -m "[breaking] Redesign CLI args"    # → v1.0.0 (major)
+```
+
 ## Error Handling
 
 The launcher includes comprehensive error handling:

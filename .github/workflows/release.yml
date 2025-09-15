@@ -79,8 +79,23 @@ jobs:
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           INCREMENT_TYPE="${{ github.event.inputs.version_type }}"
         else
-          INCREMENT_TYPE="minor"
+          # Parse commit message for version increment keywords
+          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MESSAGE"
+          
+          if echo "$COMMIT_MESSAGE" | grep -qiE "\[(major|breaking)\]|^(major|breaking):"; then
+            INCREMENT_TYPE="major"
+            echo "Detected MAJOR version increment from commit message"
+          elif echo "$COMMIT_MESSAGE" | grep -qiE "\[(minor|feature|feat)\]|^(minor|feature|feat):"; then
+            INCREMENT_TYPE="minor"
+            echo "Detected MINOR version increment from commit message"
+          else
+            INCREMENT_TYPE="patch"
+            echo "Default PATCH version increment"
+          fi
         fi
+        
+        echo "Increment type: $INCREMENT_TYPE"
         
         # Increment version based on type
         case $INCREMENT_TYPE in
@@ -105,6 +120,7 @@ jobs:
         echo "New tag: $NEW_TAG"
         echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
         echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "increment_type=$INCREMENT_TYPE" >> $GITHUB_OUTPUT
 
     - name: Build for multiple platforms
       run: |
@@ -167,6 +183,8 @@ jobs:
         name: Release ${{ steps.version.outputs.tag }}
         body: |
           ## DDALAB Launcher ${{ steps.version.outputs.version }}
+          
+          **Version increment**: ${{ steps.version.outputs.increment_type }}
           
           ### 🚀 Features
           - Cross-platform DDALAB management tool
