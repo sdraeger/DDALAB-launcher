@@ -146,6 +146,11 @@ func (u *Updater) PerformUpdate(ctx context.Context, downloadURL string) error {
 	return nil
 }
 
+// ParseVersion parses a version string, handling 'v' prefix (exported for testing)
+func (u *Updater) ParseVersion(version string) (semver.Version, error) {
+	return u.parseVersion(version)
+}
+
 // parseVersion parses a version string, handling 'v' prefix
 func (u *Updater) parseVersion(version string) (semver.Version, error) {
 	// Remove 'v' prefix if present

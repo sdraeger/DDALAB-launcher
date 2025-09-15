@@ -455,8 +455,8 @@ func (l *Launcher) handleCheckUpdatesCommand() error {
 	return l.executeWithInterrupt("checking for updates", func(ctx context.Context) error {
 		l.ui.ShowProgress("Checking for launcher updates")
 
-		// Create updater
-		currentVersion := l.configManager.GetConfig().Version
+		// Create updater - use the actual binary version, not the config version
+		currentVersion := config.GetVersion()
 		updaterInstance := updater.NewUpdater(currentVersion)
 
 		// Check for updates
@@ -547,7 +547,8 @@ func (l *Launcher) checkForUpdatesOnStartup() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	currentVersion := l.configManager.GetConfig().Version
+	// Use the actual binary version, not the config version
+	currentVersion := config.GetVersion()
 	updaterInstance := updater.NewUpdater(currentVersion)
 
 	updateInfo, err := updaterInstance.CheckForUpdates(ctx)

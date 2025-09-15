@@ -9,6 +9,7 @@ import (
 
 	"github.com/ddalab/launcher/internal/app"
 	"github.com/ddalab/launcher/internal/terminal"
+	"github.com/ddalab/launcher/pkg/config"
 )
 
 // Version is set by build flags
@@ -45,6 +46,9 @@ func main() {
 	if runtime.GOOS != "windows" {
 		fmt.Print("\033]0;DDALAB Launcher\007")
 	}
+
+	// Set the version in the config package so it's available throughout the application
+	config.SetVersion(version)
 
 	launcher, err := app.NewLauncher()
 	if err != nil {

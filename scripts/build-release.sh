@@ -15,19 +15,19 @@ mkdir -p ${BUILD_DIR}
 
 # Build for Linux
 echo "Building for Linux..."
-GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.Version=${VERSION}" \
+GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version=${VERSION}" \
     -o ${BUILD_DIR}/${BINARY_NAME}-linux-amd64 ./cmd/launcher
 
 # Build for macOS
 echo "Building for macOS..."
-GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.Version=${VERSION}" \
+GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.version=${VERSION}" \
     -o ${BUILD_DIR}/${BINARY_NAME}-darwin-amd64 ./cmd/launcher
-GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.Version=${VERSION}" \
+GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.version=${VERSION}" \
     -o ${BUILD_DIR}/${BINARY_NAME}-darwin-arm64 ./cmd/launcher
 
 # Build for Windows
 echo "Building for Windows..."
-GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.Version=${VERSION}" \
+GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=${VERSION}" \
     -o ${BUILD_DIR}/${BINARY_NAME}-windows-amd64.exe ./cmd/launcher
 
 # Create macOS app bundle

@@ -7,12 +7,17 @@ import (
 	"time"
 )
 
-// Version is injected at build time
+// Version is injected at build time - this is a fallback for development
 var Version = "dev"
 
 // GetVersion returns the current version
 func GetVersion() string {
 	return Version
+}
+
+// SetVersion allows setting the version from the main package
+func SetVersion(v string) {
+	Version = v
 }
 
 // LauncherConfig holds the persistent state of the launcher
