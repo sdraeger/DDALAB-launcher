@@ -20,10 +20,15 @@ deps:
 	go mod tidy
 	go mod download
 
-# Build the launcher
+# Build the launcher (with GUI support)
 build:
 	mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/launcher
+
+# Build the launcher without GUI (for CI/headless environments)
+build-nogui:
+	mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 go build $(LDFLAGS) -tags nogui -o $(BUILD_DIR)/$(BINARY_NAME)-nogui ./cmd/launcher
 
 # Build for multiple platforms
 build-all: deps
@@ -49,13 +54,13 @@ build-macos-app: build
 run: build
 	./$(BUILD_DIR)/$(BINARY_NAME)
 
-# Run tests
+# Run tests (without GUI to avoid CGO dependencies in CI)
 test:
-	go test -v ./...
+	CGO_ENABLED=0 go test -tags nogui -v ./...
 
-# Run tests with coverage
+# Run tests with coverage (without GUI to avoid CGO dependencies)
 test-coverage:
-	go test -v -coverprofile=coverage.out ./...
+	CGO_ENABLED=0 go test -tags nogui -v -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
 # Clean build artifacts
@@ -95,11 +100,11 @@ vet:
 	@echo "Vet completed!"
 
 # Pre-commit checks - run before committing
-pre-commit: fmt vet lint
+pre-commit: fmt vet lint test
 	@echo "Pre-commit checks completed successfully!"
 
 # Quick pre-commit checks (without golangci-lint)
-pre-commit-quick: fmt vet
+pre-commit-quick: fmt vet test
 	@echo "Quick pre-commit checks completed successfully!"
 
 # Check if code is properly formatted

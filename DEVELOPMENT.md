@@ -39,8 +39,11 @@ This will install pre-commit hooks that automatically:
 
 ### Building
 ```bash
-# Build for current platform
+# Build for current platform (with GUI support)
 make build
+
+# Build without GUI (for CI/headless environments)  
+make build-nogui
 
 # Build for all platforms
 make build-all
@@ -51,12 +54,14 @@ make build-macos-app
 
 ### Testing
 ```bash
-# Run all tests
+# Run all tests (automatically excludes GUI to avoid CGO dependencies)
 make test
 
 # Run tests with coverage
 make test-coverage
 ```
+
+**Note:** Tests automatically run in no-GUI mode to avoid CGO dependencies in CI environments. The GUI functionality is tested through manual verification.
 
 ### Code Quality
 
@@ -157,6 +162,11 @@ make build
 # Test GUI functionality
 ./bin/ddalab-launcher
 # Then select "Open GUI (Experimental)" from the menu
+
+# For headless environments or CI, use the no-GUI build:
+make build-nogui
+./bin/ddalab-launcher-nogui
+# GUI option will show an error message explaining GUI is not available
 ```
 
 **GUI Features:**
@@ -166,6 +176,10 @@ make build
 - Configuration management
 - Update checking and installation
 - Cross-platform compatibility
+
+**Build Tags:**
+- Default build: Includes GUI support (requires CGO)
+- `nogui` tag: Excludes GUI, no CGO dependencies (used for CI/testing)
 
 ### Release Process
 1. Update version in build scripts
