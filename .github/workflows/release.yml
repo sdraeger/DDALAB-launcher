@@ -127,54 +127,67 @@ jobs:
         VERSION="${{ steps.version.outputs.version }}"
         LDFLAGS="-X main.version=$VERSION -X github.com/ddalab/launcher/pkg/config.Version=$VERSION"
         
-        # Create build directory
+        # Ensure clean build directory
+        rm -rf build
         mkdir -p build
         
+        echo "Building version: $VERSION"
+        echo "Build flags: $LDFLAGS"
+        echo "Git commit: ${{ github.sha }}"
+        
         # Build for Linux (amd64)
-        GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-linux-amd64 cmd/launcher/main.go
+        GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-linux-amd64 cmd/launcher/main.go
         
         # Build for Linux (arm64)
-        GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-linux-arm64 cmd/launcher/main.go
+        GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-linux-arm64 cmd/launcher/main.go
         
         # Build for macOS (amd64)
-        GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-darwin-amd64 cmd/launcher/main.go
+        GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-darwin-amd64 cmd/launcher/main.go
         
         # Build for macOS (arm64 - Apple Silicon)
-        GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-darwin-arm64 cmd/launcher/main.go
+        GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-darwin-arm64 cmd/launcher/main.go
         
         # Build for Windows (amd64)
-        GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-windows-amd64.exe cmd/launcher/main.go
+        GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-windows-amd64.exe cmd/launcher/main.go
         
         # Build for Windows (arm64)
-        GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-windows-arm64.exe cmd/launcher/main.go
+        GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build/ddalab-launcher-v${VERSION}-windows-arm64.exe cmd/launcher/main.go
+        
+        echo "Build completed. Verifying binaries contain correct version..."
+        
+        # Verify Linux binary contains correct version
+        echo "Linux amd64 version check:"
+        ./build/ddalab-launcher-v${VERSION}-linux-amd64 --version || echo "Version check failed for Linux binary"
 
     - name: Create release archives
       run: |
         cd build
+        VERSION="${{ steps.version.outputs.version }}"
         
         # Create tarball for Linux amd64
-        tar -czf ddalab-launcher-linux-amd64.tar.gz ddalab-launcher-linux-amd64
+        tar -czf ddalab-launcher-v${VERSION}-linux-amd64.tar.gz ddalab-launcher-v${VERSION}-linux-amd64
         
         # Create tarball for Linux arm64
-        tar -czf ddalab-launcher-linux-arm64.tar.gz ddalab-launcher-linux-arm64
+        tar -czf ddalab-launcher-v${VERSION}-linux-arm64.tar.gz ddalab-launcher-v${VERSION}-linux-arm64
         
         # Create tarball for macOS amd64
-        tar -czf ddalab-launcher-darwin-amd64.tar.gz ddalab-launcher-darwin-amd64
+        tar -czf ddalab-launcher-v${VERSION}-darwin-amd64.tar.gz ddalab-launcher-v${VERSION}-darwin-amd64
         
         # Create tarball for macOS arm64
-        tar -czf ddalab-launcher-darwin-arm64.tar.gz ddalab-launcher-darwin-arm64
+        tar -czf ddalab-launcher-v${VERSION}-darwin-arm64.tar.gz ddalab-launcher-v${VERSION}-darwin-arm64
         
         # Create zip for Windows amd64
-        zip ddalab-launcher-windows-amd64.zip ddalab-launcher-windows-amd64.exe
+        zip ddalab-launcher-v${VERSION}-windows-amd64.zip ddalab-launcher-v${VERSION}-windows-amd64.exe
         
         # Create zip for Windows arm64
-        zip ddalab-launcher-windows-arm64.zip ddalab-launcher-windows-arm64.exe
+        zip ddalab-launcher-v${VERSION}-windows-arm64.zip ddalab-launcher-v${VERSION}-windows-arm64.exe
 
     - name: Generate checksums
       run: |
         cd build
-        sha256sum *.tar.gz *.zip > checksums.txt
-        cat checksums.txt
+        VERSION="${{ steps.version.outputs.version }}"
+        sha256sum *.tar.gz *.zip > ddalab-launcher-v${VERSION}-checksums.txt
+        cat ddalab-launcher-v${VERSION}-checksums.txt
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -185,6 +198,10 @@ jobs:
           ## DDALAB Launcher ${{ steps.version.outputs.version }}
           
           **Version increment**: ${{ steps.version.outputs.increment_type }}
+          **Built from commit**: [`${{ github.sha }}`](https://github.com/sdraeger/DDALAB-launcher/commit/${{ github.sha }})
+          **Build date**: ${{ github.event.head_commit.timestamp }}
+          
+          ⚠️ **Important**: All binaries in this release are freshly built with version `${{ steps.version.outputs.version }}` embedded. Use `--version` flag to verify.
           
           ### 🚀 Features
           - Cross-platform DDALAB management tool
@@ -198,35 +215,35 @@ jobs:
           Choose the appropriate binary for your platform:
           
           **Linux:**
-          - `ddalab-launcher-linux-amd64.tar.gz` - For Intel/AMD 64-bit systems
-          - `ddalab-launcher-linux-arm64.tar.gz` - For ARM 64-bit systems (e.g., Raspberry Pi)
+          - `ddalab-launcher-v${{ steps.version.outputs.version }}-linux-amd64.tar.gz` - For Intel/AMD 64-bit systems
+          - `ddalab-launcher-v${{ steps.version.outputs.version }}-linux-arm64.tar.gz` - For ARM 64-bit systems (e.g., Raspberry Pi)
           
           **macOS:**
-          - `ddalab-launcher-darwin-amd64.tar.gz` - For Intel Macs
-          - `ddalab-launcher-darwin-arm64.tar.gz` - For Apple Silicon Macs (M1/M2)
+          - `ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-amd64.tar.gz` - For Intel Macs
+          - `ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-arm64.tar.gz` - For Apple Silicon Macs (M1/M2)
           
           **Windows:**
-          - `ddalab-launcher-windows-amd64.zip` - For Intel/AMD 64-bit systems
-          - `ddalab-launcher-windows-arm64.zip` - For ARM 64-bit systems
+          - `ddalab-launcher-v${{ steps.version.outputs.version }}-windows-amd64.zip` - For Intel/AMD 64-bit systems
+          - `ddalab-launcher-v${{ steps.version.outputs.version }}-windows-arm64.zip` - For ARM 64-bit systems
           
           ### 🔐 Verification
-          Use the `checksums.txt` file to verify the integrity of your download:
+          Use the `ddalab-launcher-v${{ steps.version.outputs.version }}-checksums.txt` file to verify the integrity of your download:
           ```bash
-          sha256sum -c checksums.txt
+          sha256sum -c ddalab-launcher-v${{ steps.version.outputs.version }}-checksums.txt
           ```
           
           ### 📖 Installation
           1. Download the appropriate archive for your platform
-          2. Extract the archive: `tar -xzf <filename>.tar.gz` (Linux/macOS) or unzip (Windows)
-          3. Make executable (Linux/macOS): `chmod +x ddalab-launcher-*`
-          4. Run: `./ddalab-launcher-*`
+          2. Extract the archive: `tar -xzf ddalab-launcher-v${{ steps.version.outputs.version }}-<platform>.tar.gz` (Linux/macOS) or unzip (Windows)
+          3. Make executable (Linux/macOS): `chmod +x ddalab-launcher-v${{ steps.version.outputs.version }}-*`
+          4. Run: `./ddalab-launcher-v${{ steps.version.outputs.version }}-<platform>`
           
           ### 🐛 Issues
           Report issues at: https://github.com/sdraeger/DDALAB-launcher/issues
         files: |
           build/*.tar.gz
           build/*.zip
-          build/checksums.txt
+          build/*-checksums.txt
         generate_release_notes: false
         draft: false
         prerelease: false
