@@ -16,11 +16,14 @@ linters:
 linters-settings:
   staticcheck:
     checks: ["all", "-S1000"] # Disable S1000 (simple channel send/receive)
+  gosimple:
+    checks: ["all", "-S1000"] # Disable S1000 in gosimple as well
 
 issues:
   exclude-rules:
-    # Exclude specific staticcheck rules for intentional patterns
+    # Exclude specific rules for intentional patterns
     - path: pkg/interrupt/handler.go
       text: "should use a simple channel send/receive instead of select with a single case"
       linters:
         - staticcheck
+        - gosimple

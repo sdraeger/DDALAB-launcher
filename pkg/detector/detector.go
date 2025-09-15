@@ -9,11 +9,11 @@ import (
 
 // InstallationInfo contains details about a detected DDALAB installation
 type InstallationInfo struct {
-	Path           string
-	Valid          bool
-	Version        string
-	DockerCompose  bool
-	Scripts        bool
+	Path            string
+	Valid           bool
+	Version         string
+	DockerCompose   bool
+	Scripts         bool
 	HasCertificates bool
 }
 
@@ -43,7 +43,7 @@ func (d *Detector) FindInstallations() ([]*InstallationInfo, error) {
 	}
 
 	var installations []*InstallationInfo
-	
+
 	for _, path := range searchPaths {
 		if info := d.DetectInstallation(path); info.Valid {
 			installations = append(installations, info)
@@ -118,7 +118,7 @@ func (d *Detector) extractVersion(path string) string {
 	}
 
 	contentStr := string(content)
-	
+
 	// Look for DDALAB image version
 	if strings.Contains(contentStr, "sdraeger1/ddalab:") {
 		lines := strings.Split(contentStr, "\n")
@@ -148,7 +148,7 @@ func (d *Detector) extractVersion(path string) string {
 // ValidateInstallation performs comprehensive validation of an installation
 func (d *Detector) ValidateInstallation(path string) error {
 	info := d.DetectInstallation(path)
-	
+
 	if !info.Valid {
 		return fmt.Errorf("invalid DDALAB installation at %s", path)
 	}

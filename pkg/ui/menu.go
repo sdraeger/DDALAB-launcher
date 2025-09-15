@@ -38,7 +38,7 @@ func (m *MenuManager) ShowMenu(title string, options []MenuOption) (string, erro
 		} else {
 			items[i] = option.Label
 		}
-		
+
 		if option.Description != "" {
 			items[i] += fmt.Sprintf(" - %s", option.Description)
 		}

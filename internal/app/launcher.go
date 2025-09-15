@@ -13,11 +13,11 @@ import (
 
 // Launcher is the main application struct
 type Launcher struct {
-	configManager     *config.ConfigManager
-	detector          *detector.Detector
-	ui                *ui.UI
-	commander         *commands.Commander
-	interruptHandler  *interrupt.Handler
+	configManager    *config.ConfigManager
+	detector         *detector.Detector
+	ui               *ui.UI
+	commander        *commands.Commander
+	interruptHandler *interrupt.Handler
 }
 
 // NewLauncher creates a new launcher instance
@@ -77,7 +77,7 @@ func (l *Launcher) runFirstTimeSetup() error {
 
 	l.ui.ShowSuccess("DDALAB Launcher configured successfully!")
 	l.ui.ShowInfo(fmt.Sprintf("Installation path: %s", ddalabPath))
-	
+
 	// Ask if user wants to start DDALAB now
 	if l.ui.ConfirmOperation("start DDALAB now") {
 		return l.handleStartCommand()
@@ -91,7 +91,7 @@ func (l *Launcher) runMainLoop() error {
 	for {
 		// Clear screen for better UX
 		fmt.Print("\033[2J\033[H")
-		
+
 		choice, err := l.ui.ShowMainMenu()
 		if err != nil {
 			// Handle user cancellation gracefully
@@ -127,22 +127,22 @@ func (l *Launcher) runMainLoop() error {
 // executeWithInterrupt executes a function with interrupt handling
 func (l *Launcher) executeWithInterrupt(operation string, fn func(ctx context.Context) error) error {
 	fmt.Printf("ℹ️  Press Ctrl+C to cancel %s\n", operation)
-	
+
 	ctx, cancel := l.interruptHandler.WithCancellableContext(context.Background())
 	defer cancel()
 
 	err := fn(ctx)
-	
+
 	if interrupt.IsInterruptError(err) {
 		l.ui.ShowWarning("Operation was cancelled")
 		return nil // Don't treat cancellation as an error
 	}
-	
+
 	if l.interruptHandler.WasInterrupted() {
 		l.ui.ShowWarning("Operation was interrupted but may have completed")
 		return nil
 	}
-	
+
 	return err
 }
 
@@ -234,7 +234,7 @@ func (l *Launcher) handleRestartCommand() error {
 // handleStatusCommand shows DDALAB service status
 func (l *Launcher) handleStatusCommand() error {
 	l.ui.ShowProgress("Checking DDALAB status")
-	
+
 	// Check if services are running
 	running, err := l.commander.IsRunning()
 	if err != nil {
@@ -244,7 +244,7 @@ func (l *Launcher) handleStatusCommand() error {
 	if running {
 		l.ui.ShowSuccess("DDALAB is running")
 		l.ui.ShowInfo("Access URL: https://localhost")
-		
+
 		// Get detailed service health
 		services, err := l.commander.GetServiceHealth()
 		if err != nil {
@@ -271,7 +271,7 @@ func (l *Launcher) handleStatusCommand() error {
 func (l *Launcher) handleLogsCommand() error {
 	return l.executeWithInterrupt("fetching logs", func(ctx context.Context) error {
 		l.ui.ShowProgress("Fetching DDALAB logs")
-		
+
 		logs, err := l.commander.LogsWithContext(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get logs: %w", err)
@@ -281,7 +281,7 @@ func (l *Launcher) handleLogsCommand() error {
 		fmt.Println(logs)
 		fmt.Println("═══════════════════════════════")
 		l.ui.ShowInfo("To view live logs, use: docker-compose logs -f")
-		
+
 		return nil
 	})
 }
@@ -289,7 +289,7 @@ func (l *Launcher) handleLogsCommand() error {
 // handleConfigureCommand reconfigures the DDALAB installation
 func (l *Launcher) handleConfigureCommand() error {
 	l.ui.ShowInfo("Reconfiguring DDALAB installation...")
-	
+
 	ddalabPath, err := l.ui.SelectInstallation()
 	if err != nil {
 		return fmt.Errorf("installation selection failed: %w", err)
@@ -315,7 +315,7 @@ func (l *Launcher) handleConfigureCommand() error {
 // handleBackupCommand creates a database backup
 func (l *Launcher) handleBackupCommand() error {
 	l.ui.ShowProgress("Creating database backup")
-	
+
 	if err := l.commander.Backup(); err != nil {
 		return fmt.Errorf("backup failed: %w", err)
 	}
@@ -333,7 +333,7 @@ func (l *Launcher) handleUpdateCommand() error {
 	return l.executeWithInterrupt("updating DDALAB", func(ctx context.Context) error {
 		l.ui.ShowProgress("Updating DDALAB")
 		l.ui.ShowInfo("This may take a few minutes...")
-		
+
 		if err := l.commander.UpdateWithContext(ctx); err != nil {
 			return fmt.Errorf("update failed: %w", err)
 		}
@@ -346,7 +346,7 @@ func (l *Launcher) handleUpdateCommand() error {
 // handleUninstallCommand removes DDALAB installation
 func (l *Launcher) handleUninstallCommand() error {
 	l.ui.ShowWarning("This will stop all DDALAB services and remove all data!")
-	
+
 	if !l.ui.ConfirmOperation("completely uninstall DDALAB") {
 		return nil
 	}
@@ -357,13 +357,13 @@ func (l *Launcher) handleUninstallCommand() error {
 	}
 
 	l.ui.ShowProgress("Uninstalling DDALAB")
-	
+
 	if err := l.commander.Uninstall(); err != nil {
 		return fmt.Errorf("uninstall failed: %w", err)
 	}
 
 	l.ui.ShowSuccess("DDALAB uninstalled successfully!")
 	l.ui.ShowInfo("You can safely delete the DDALAB-setup directory if no longer needed")
-	
+
 	return nil
 }

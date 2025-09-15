@@ -34,7 +34,7 @@ func (ui *UI) ShowWelcome() {
 // ShowMainMenu displays the main menu for existing users
 func (ui *UI) ShowMainMenu() (string, error) {
 	config := ui.configManager.GetConfig()
-	
+
 	fmt.Printf("\n🚀 DDALAB Launcher v%s\n", config.Version)
 	if config.DDALABPath != "" {
 		fmt.Printf("📂 Installation: %s\n", config.DDALABPath)
@@ -42,7 +42,7 @@ func (ui *UI) ShowMainMenu() (string, error) {
 
 	menuManager := NewMenuManager(ui)
 	options := menuManager.GetMainMenuOptions()
-	
+
 	action, err := menuManager.ShowMenu("What would you like to do?", options)
 	if err != nil {
 		return "", err
@@ -65,7 +65,7 @@ func (ui *UI) ShowMainMenu() (string, error) {
 	if result, exists := actionMap[action]; exists {
 		return result, nil
 	}
-	
+
 	return action, nil
 }
 
@@ -124,13 +124,13 @@ func (ui *UI) configureNewInstallation() (string, error) {
 		if strings.TrimSpace(input) == "" {
 			return fmt.Errorf("path cannot be empty")
 		}
-		
+
 		// Basic validation - check if path looks reasonable
 		info := ui.detector.DetectInstallation(input)
 		if !info.Valid {
 			return fmt.Errorf("invalid DDALAB installation at %s", input)
 		}
-		
+
 		return nil
 	}
 
@@ -219,10 +219,10 @@ func (ui *UI) WaitForUser(message string) {
 	if message == "" {
 		message = "Press Enter to continue..."
 	}
-	
+
 	prompt := promptui.Prompt{
 		Label: message,
 	}
-	
-	prompt.Run()
+
+	_, _ = prompt.Run()
 }

@@ -45,7 +45,7 @@ func (c *Commander) StartWithContext(ctx context.Context) error {
 
 	cmd := c.createCommandWithContext(ctx, scriptPath, "start")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if ctx.Err() != nil {
@@ -55,8 +55,8 @@ func (c *Commander) StartWithContext(ctx context.Context) error {
 	}
 
 	c.configManager.SetLastOperation("start")
-	c.configManager.Save()
-	
+	_ = c.configManager.Save()
+
 	return nil
 }
 
@@ -72,15 +72,15 @@ func (c *Commander) Stop() error {
 
 	cmd := c.createCommand(scriptPath, "stop")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to stop DDALAB: %s\nOutput: %s", err, string(output))
 	}
 
 	c.configManager.SetLastOperation("stop")
-	c.configManager.Save()
-	
+	_ = c.configManager.Save()
+
 	return nil
 }
 
@@ -96,15 +96,15 @@ func (c *Commander) Restart() error {
 
 	cmd := c.createCommand(scriptPath, "restart")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to restart DDALAB: %s\nOutput: %s", err, string(output))
 	}
 
 	c.configManager.SetLastOperation("restart")
-	c.configManager.Save()
-	
+	_ = c.configManager.Save()
+
 	return nil
 }
 
@@ -120,7 +120,7 @@ func (c *Commander) Status() (string, error) {
 
 	cmd := c.createCommand(scriptPath, "status")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get DDALAB status: %s", err)
@@ -146,7 +146,7 @@ func (c *Commander) LogsWithContext(ctx context.Context) (string, error) {
 
 	cmd := c.createCommandWithContext(ctx, scriptPath, "logs")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if ctx.Err() != nil {
@@ -170,15 +170,15 @@ func (c *Commander) Backup() error {
 
 	cmd := c.createCommand(scriptPath, "backup")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to backup DDALAB: %s\nOutput: %s", err, string(output))
 	}
 
 	c.configManager.SetLastOperation("backup")
-	c.configManager.Save()
-	
+	_ = c.configManager.Save()
+
 	return nil
 }
 
@@ -202,7 +202,7 @@ func (c *Commander) UpdateWithContext(ctx context.Context) error {
 	// Pull latest images with context
 	cmd := exec.CommandContext(ctx, "docker-compose", "pull")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if ctx.Err() != nil {
@@ -217,8 +217,8 @@ func (c *Commander) UpdateWithContext(ctx context.Context) error {
 	}
 
 	c.configManager.SetLastOperation("update")
-	c.configManager.Save()
-	
+	_ = c.configManager.Save()
+
 	return nil
 }
 
@@ -232,7 +232,7 @@ func (c *Commander) Uninstall() error {
 	// Stop and remove all containers and volumes
 	cmd := exec.Command("docker-compose", "down", "-v", "--remove-orphans")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to remove DDALAB containers: %s\nOutput: %s", err, string(output))
@@ -247,8 +247,8 @@ func (c *Commander) Uninstall() error {
 	}
 
 	c.configManager.SetLastOperation("uninstall")
-	c.configManager.Save()
-	
+	_ = c.configManager.Save()
+
 	return nil
 }
 
@@ -295,7 +295,7 @@ func (c *Commander) IsRunning() (bool, error) {
 	// Use docker-compose ps to check running services
 	cmd := exec.Command("docker-compose", "ps", "-q")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("failed to check service status: %w", err)
@@ -314,7 +314,7 @@ func (c *Commander) GetServiceHealth() (map[string]string, error) {
 
 	cmd := exec.Command("docker-compose", "ps", "--format", "table")
 	cmd.Dir = ddalabPath
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service health: %w", err)
@@ -324,7 +324,7 @@ func (c *Commander) GetServiceHealth() (map[string]string, error) {
 	// This is a simplified implementation
 	services := make(map[string]string)
 	lines := strings.Split(string(output), "\n")
-	
+
 	for _, line := range lines {
 		if strings.Contains(line, "ddalab") {
 			fields := strings.Fields(line)

@@ -40,7 +40,7 @@ func relaunchInMacTerminal(executable string) error {
 			do script "%s; exit"
 		end tell
 	`, executable)
-	
+
 	cmd := exec.Command("osascript", "-e", script)
 	return cmd.Start()
 }
@@ -90,7 +90,6 @@ func relaunchInWindowsTerminal(executable string) error {
 	return cmd.Start()
 }
 
-
 // ShowGUIError displays an error message using a GUI dialog
 func ShowGUIError(title, message string) {
 	switch runtime.GOOS {
@@ -105,9 +104,9 @@ func ShowGUIError(title, message string) {
 
 // showMacDialog shows a dialog on macOS using osascript
 func showMacDialog(title, message string) {
-	script := fmt.Sprintf(`display dialog "%s" with title "%s" buttons {"OK"} default button "OK"`, 
+	script := fmt.Sprintf(`display dialog "%s" with title "%s" buttons {"OK"} default button "OK"`,
 		message, title)
-	exec.Command("osascript", "-e", script).Run()
+	_ = exec.Command("osascript", "-e", script).Run()
 }
 
 // showLinuxDialog shows a dialog on Linux using available tools
@@ -125,7 +124,7 @@ func showLinuxDialog(title, message string) {
 
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool.name); err == nil {
-			exec.Command(tool.name, tool.args...).Run()
+			_ = exec.Command(tool.name, tool.args...).Run()
 			return
 		}
 	}
@@ -136,6 +135,6 @@ func showWindowsDialog(title, message string) {
 	// Use PowerShell to show a message box
 	script := fmt.Sprintf(`[System.Windows.Forms.MessageBox]::Show('%s', '%s', 'OK', 'Error')`,
 		message, title)
-	exec.Command("powershell", "-Command", 
+	_ = exec.Command("powershell", "-Command",
 		"Add-Type -AssemblyName System.Windows.Forms;", script).Run()
 }

@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	kernel32                = syscall.NewLazyDLL("kernel32.dll")
-	procGetConsoleWindow    = kernel32.NewProc("GetConsoleWindow")
-	procGetConsoleMode      = kernel32.NewProc("GetConsoleMode")
+	kernel32             = syscall.NewLazyDLL("kernel32.dll")
+	procGetConsoleWindow = kernel32.NewProc("GetConsoleWindow")
+	procGetConsoleMode   = kernel32.NewProc("GetConsoleMode")
 )
 
 // isTerminalPlatform checks if running in a terminal on Windows

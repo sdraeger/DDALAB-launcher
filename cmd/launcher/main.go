@@ -31,10 +31,10 @@ func main() {
 		// Try to relaunch in a terminal
 		if err := terminal.RelaunchInTerminal(); err != nil {
 			// If that fails, show a GUI error message
-			terminal.ShowGUIError("Failed to open terminal", 
-				"DDALAB Launcher requires a terminal to run.\n\n" +
-				"Please run this application from a terminal:\n" +
-				"./ddalab-launcher")
+			terminal.ShowGUIError("Failed to open terminal",
+				"DDALAB Launcher requires a terminal to run.\n\n"+
+					"Please run this application from a terminal:\n"+
+					"./ddalab-launcher")
 			os.Exit(1)
 		}
 		// If relaunch succeeded, exit this instance
@@ -53,10 +53,10 @@ func main() {
 
 	if err := launcher.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
-		
+
 		// On error, wait for user input before closing
 		fmt.Println("\nPress Enter to exit...")
-		fmt.Scanln()
+		_, _ = fmt.Scanln()
 		os.Exit(1)
 	}
 }

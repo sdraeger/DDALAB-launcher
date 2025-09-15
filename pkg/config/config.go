@@ -36,7 +36,7 @@ func NewConfigManager() (*ConfigManager, error) {
 	}
 
 	configPath := filepath.Join(homeDir, ".ddalab-launcher")
-	
+
 	cm := &ConfigManager{
 		configPath: configPath,
 		config: &LauncherConfig{

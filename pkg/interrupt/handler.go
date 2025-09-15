@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"sync"
+	"syscall"
 )
 
 // Handler manages interrupt signals for graceful cancellation
@@ -61,7 +61,7 @@ func (h *Handler) handleSignals() {
 		if active && cancel != nil {
 			fmt.Println("\n⚠️  Operation interrupted by user")
 			cancel()
-			
+
 			// Notify that interruption occurred
 			select {
 			case h.notifyCh <- struct{}{}:
