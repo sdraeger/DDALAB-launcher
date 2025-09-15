@@ -2,52 +2,41 @@
 
 ## Overview
 
-The launcher uses GitHub Actions for continuous integration and testing. The configuration handles both GUI and headless builds to ensure compatibility across different environments.
+The launcher uses GitHub Actions for continuous integration and testing. The configuration provides simple, reliable builds across all platforms.
 
 ## Workflows
 
 ### Test Workflow (`.github/workflows/test.yml`)
 
 **Main Test Job (`test`):**
-- Runs on Ubuntu in headless environment
-- Uses `nogui` build tag to avoid CGO/GUI dependencies
-- Tests core functionality without GUI requirements
+- Runs on Ubuntu 
+- Tests core functionality
 - Performs cross-platform build tests (Linux, macOS, Windows)
+- Uses standard Go build process (no special tags required)
 
-**GUI Build Test Job (`test-gui-build`):**
-- Installs GUI dependencies on Ubuntu
-- Tests that GUI version compiles correctly
-- Ensures GUI code doesn't have compilation issues
-- Does not run GUI (no display available in CI)
+### Release Workflow (`.github/workflows/release.yml`)
 
-## Build Tags
+**Test Job:**
+- Same as test workflow
+- Must pass before builds are created
 
-### `nogui` Tag
-- **Purpose**: Excludes GUI code from compilation
-- **Benefits**: No CGO dependencies, faster builds, CI-compatible
-- **Usage**: Automatically used in tests and CI
-- **Functionality**: Provides stub implementation with informative error
-
-### Default Build (no tags)
-- **Purpose**: Full GUI support for end users
-- **Requirements**: CGO, OpenGL/X11 headers, display system
-- **Usage**: Local development and user deployments
+**Build Job:**
+- Creates cross-platform binaries
+- Generates archives and checksums
+- Creates GitHub releases with proper versioning
 
 ## CI Commands
 
-The CI uses these specific commands to avoid GUI dependencies:
+The CI uses these standard commands:
 
 ```bash
-# Tests (no CGO, no GUI dependencies)
-CGO_ENABLED=0 go test -tags nogui -v ./...
+# Tests
+go test -v ./...
 
-# Cross-platform builds (headless)
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags nogui ./cmd/launcher
-CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -tags nogui ./cmd/launcher  
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags nogui ./cmd/launcher
-
-# GUI compilation test (with dependencies)
-CGO_ENABLED=1 go build ./cmd/launcher
+# Cross-platform builds
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./cmd/launcher
+CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ./cmd/launcher  
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./cmd/launcher
 ```
 
 ## Local Development
@@ -58,31 +47,29 @@ Developers can use the same commands locally:
 # Run tests like CI does
 make test
 
-# Build without GUI (like CI)
-make build-nogui
-
-# Build with GUI (for local use)
+# Build like CI does
 make build
 ```
 
 ## Troubleshooting
 
-### GUI Dependencies Missing
-If you see errors like "X11/Xlib.h: No such file or directory":
-- This is expected in CI/headless environments
-- Use `make test` or `make build-nogui` instead
-- Install GUI dependencies for local GUI development
+### Build Issues
+If you see compilation errors:
+- Ensure Go version matches CI (1.21+)
+- Check that dependencies are properly downloaded (`go mod download`)
+- Verify code formatting (`make fmt`)
 
-### CGO Issues
-If you see CGO-related compilation errors:
-- Use `CGO_ENABLED=0` and `-tags nogui` flags
-- This builds a headless version without GUI support
-- Perfect for CI, Docker, and server deployments
+### Test Failures
+If tests fail locally but should pass in CI:
+- Run `go test -v ./...` to see detailed output
+- Check for platform-specific issues
+- Ensure no external dependencies are required
 
 ## Release Builds
 
-Release builds should include both versions:
-- **GUI Version**: For desktop users (`make build`)
-- **Headless Version**: For servers (`make build-nogui`)
+Release builds are simple and reliable:
+- **Cross-platform**: Works on Linux, macOS, Windows (both Intel and ARM)
+- **Self-contained**: No external dependencies required
+- **Lightweight**: Fast builds and small binaries
 
 This ensures compatibility across all deployment scenarios.

@@ -10,7 +10,6 @@ import (
 	"github.com/ddalab/launcher/pkg/commands"
 	"github.com/ddalab/launcher/pkg/config"
 	"github.com/ddalab/launcher/pkg/detector"
-	"github.com/ddalab/launcher/pkg/gui"
 	"github.com/ddalab/launcher/pkg/interrupt"
 	"github.com/ddalab/launcher/pkg/status"
 	"github.com/ddalab/launcher/pkg/ui"
@@ -190,8 +189,6 @@ func (l *Launcher) handleMenuChoice(choice string) error {
 		return l.handleUpdateCommand()
 	case "Check for Launcher Updates":
 		return l.handleCheckUpdatesCommand()
-	case "Open GUI (Experimental)":
-		return l.handleOpenGUICommand()
 	case "Uninstall DDALAB":
 		return l.handleUninstallCommand()
 	case "Exit":
@@ -451,23 +448,6 @@ func (l *Launcher) handleEditConfigCommand() error {
 	l.ui.ShowSuccess("Configuration editor closed")
 	l.ui.ShowInfo("If you made changes, you may need to restart DDALAB for them to take effect")
 
-	return nil
-}
-
-// handleOpenGUICommand launches the experimental GUI interface
-func (l *Launcher) handleOpenGUICommand() error {
-	l.ui.ShowInfo("Starting GUI...")
-	l.ui.ShowInfo("This will open the experimental graphical interface.")
-	l.ui.ShowInfo("Note: The GUI will run in a separate window.")
-
-	// Create and show the GUI
-	guiApp := gui.NewGUI(l.commander, l.configManager, l.statusMonitor)
-
-	// The GUI will take over from here and run until closed
-	// This will block until the GUI is closed
-	guiApp.Show()
-
-	l.ui.ShowInfo("GUI closed. Returning to terminal interface.")
 	return nil
 }
 

@@ -22,44 +22,20 @@ jobs:
       run: go mod download
 
     - name: Run tests
-      # Use nogui build tag to avoid CGO/GUI dependencies in CI
-      run: CGO_ENABLED=0 go test -tags nogui -v ./...
+      run: go test -v ./...
 
     - name: Run go vet
-      run: CGO_ENABLED=0 go vet -tags nogui ./...
+      run: go vet ./...
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v3
       with:
         version: latest
-        args: --build-tags nogui
 
     - name: Test builds
       run: |
-        # Test that builds work for all platforms (without GUI to avoid CGO)
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags nogui ./cmd/launcher
-        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -tags nogui ./cmd/launcher
-        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags nogui ./cmd/launcher
+        # Test that builds work for all platforms
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./cmd/launcher
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ./cmd/launcher
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./cmd/launcher
 
-  test-gui-build:
-    name: Test GUI Build (Ubuntu with GUI deps)
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
-
-    - name: Install GUI dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgl1-mesa-dev xorg-dev
-
-    - name: Download dependencies
-      run: go mod download
-
-    - name: Test GUI build (compilation only)
-      # Test that GUI version compiles, but don't run it (no display)
-      run: CGO_ENABLED=1 go build ./cmd/launcher

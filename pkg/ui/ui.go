@@ -39,7 +39,7 @@ func (ui *UI) ShowMainMenu() (string, error) {
 func (ui *UI) ShowMainMenuWithStatus(statusMonitor any) (string, error) {
 	config := ui.configManager.GetConfig()
 
-	fmt.Printf("\n🚀 DDALAB Launcher v%s\n", config.Version)
+	fmt.Printf("\n🚀 DDALAB Launcher %s\n", config.Version)
 	if config.DDALABPath != "" {
 		fmt.Printf("📂 Installation: %s\n", config.DDALABPath)
 	}

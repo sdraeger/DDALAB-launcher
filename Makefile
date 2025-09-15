@@ -9,9 +9,6 @@ BUILD_DIR=bin
 # Go build flags
 LDFLAGS=-ldflags "-s -w"
 
-# Enable CGO for Fyne GUI (required for GUI functionality)
-CGO_ENABLED=1
-
 # Default target
 all: deps build
 
@@ -20,26 +17,21 @@ deps:
 	go mod tidy
 	go mod download
 
-# Build the launcher (with GUI support)
+# Build the launcher
 build:
 	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/launcher
-
-# Build the launcher without GUI (for CI/headless environments)
-build-nogui:
-	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 go build $(LDFLAGS) -tags nogui -o $(BUILD_DIR)/$(BINARY_NAME)-nogui ./cmd/launcher
+	CGO_ENABLED=0 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/launcher
 
 # Build for multiple platforms
 build-all: deps
 	mkdir -p $(BUILD_DIR)
 	# Linux
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/launcher
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/launcher
 	# macOS
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/launcher
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/launcher
-	# Windows (without console window)
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -H=windowsgui -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/launcher
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/launcher
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/launcher
+	# Windows
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/launcher
 
 # Build macOS app bundle
 build-macos-app: build
@@ -54,13 +46,13 @@ build-macos-app: build
 run: build
 	./$(BUILD_DIR)/$(BINARY_NAME)
 
-# Run tests (without GUI to avoid CGO dependencies in CI)
+# Run tests
 test:
-	CGO_ENABLED=0 go test -tags nogui -v ./...
+	go test -v ./...
 
-# Run tests with coverage (without GUI to avoid CGO dependencies)
+# Run tests with coverage
 test-coverage:
-	CGO_ENABLED=0 go test -tags nogui -v -coverprofile=coverage.out ./...
+	go test -v -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
 # Clean build artifacts

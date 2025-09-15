@@ -21,7 +21,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("DDALAB Launcher v%s\n", version)
+		fmt.Printf("DDALAB Launcher %s\n", version)
 		fmt.Printf("Built with %s\n", runtime.Version())
 		fmt.Printf("Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 		os.Exit(0)
