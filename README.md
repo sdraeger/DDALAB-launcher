@@ -154,9 +154,17 @@ An installation is considered valid if it contains:
 
 ### macOS Security Notes
 - Binaries use `.command` extension for better system recognition
-- First run requires: Right-click → "Open" → "Open" (bypasses Gatekeeper)
-- Subsequent runs work normally (double-click or terminal)
+- **Easy setup**: Use the included `install-macos.sh` script:
+  ```bash
+  ./install-macos.sh
+  ```
+- **Manual setup**: Remove quarantine flag:
+  ```bash
+  sudo xattr -rd com.apple.quarantine ddalab-launcher-*.command
+  ```
+- **Alternative**: Right-click → "Open" → "Open" (bypasses Gatekeeper but shows warning each time)
 - This is standard for unsigned open-source applications
+- After setup, launcher works normally (double-click or terminal)
 
 ## Versioning and Releases
 

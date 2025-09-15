@@ -182,11 +182,12 @@ jobs:
         # Create tarball for Linux arm64
         tar -czf ddalab-launcher-v${VERSION}-linux-arm64.tar.gz ddalab-launcher-v${VERSION}-linux-arm64
         
-        # Create tarball for macOS amd64
-        tar -czf ddalab-launcher-v${VERSION}-darwin-amd64.tar.gz ddalab-launcher-v${VERSION}-darwin-amd64.command
+        # Create tarball for macOS amd64 (include installer script)
+        cp ../scripts/install-macos.sh .
+        tar -czf ddalab-launcher-v${VERSION}-darwin-amd64.tar.gz ddalab-launcher-v${VERSION}-darwin-amd64.command install-macos.sh
         
-        # Create tarball for macOS arm64
-        tar -czf ddalab-launcher-v${VERSION}-darwin-arm64.tar.gz ddalab-launcher-v${VERSION}-darwin-arm64.command
+        # Create tarball for macOS arm64 (include installer script)
+        tar -czf ddalab-launcher-v${VERSION}-darwin-arm64.tar.gz ddalab-launcher-v${VERSION}-darwin-arm64.command install-macos.sh
         
         # Create zip for Windows amd64
         zip ddalab-launcher-v${VERSION}-windows-amd64.zip ddalab-launcher-v${VERSION}-windows-amd64.exe
@@ -265,10 +266,21 @@ jobs:
           #### macOS
           1. Download: `ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.tar.gz`
           2. Extract: `tar -xzf ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.tar.gz`
-          3. **First run**: Right-click → "Open" → "Open" (to bypass security warning)
-          4. **Subsequent runs**: Double-click or `./ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.command`
+          3. **Easy install** (recommended):
+             ```bash
+             ./install-macos.sh
+             ```
+          4. **Manual install** (alternative):
+             ```bash
+             sudo xattr -rd com.apple.quarantine ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.command
+             ```
+          5. **Run**: `./ddalab-launcher-v${{ steps.version.outputs.version }}-darwin-<arch>.command` or double-click
           
-          **macOS Security Note**: Since the binary is unsigned, macOS will show a security warning on first run. This is normal for open-source software.
+          **macOS Security Notes**: 
+          - This binary is unsigned open-source software
+          - The `install-macos.sh` script automates quarantine removal and setup
+          - Alternative: Right-click → "Open" → "Open" (bypasses Gatekeeper but shows warning each time)
+          - After setup, the launcher works normally
           
           #### Windows
           1. Download: `ddalab-launcher-v${{ steps.version.outputs.version }}-windows-<arch>.zip`
