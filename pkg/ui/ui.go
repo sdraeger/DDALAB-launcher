@@ -72,6 +72,7 @@ func (ui *UI) ShowMainMenuWithStatus(statusMonitor any) (string, error) {
 		"backup":        "Backup Database",
 		"update":        "Update DDALAB",
 		"check-updates": "Check for Launcher Updates",
+		"open-gui":      "Open GUI (Experimental)",
 		"uninstall":     "Uninstall DDALAB",
 		"exit":          "Exit",
 	}

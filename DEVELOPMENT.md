@@ -6,6 +6,10 @@
 - Go 1.21 or later
 - Git
 - golangci-lint (optional but recommended)
+- CGO-compatible C compiler (for GUI functionality)
+  - macOS: Xcode Command Line Tools
+  - Linux: gcc, pkg-config, OpenGL/mesa headers
+  - Windows: TDM-GCC or similar
 
 ### Setup Development Environment
 
@@ -113,6 +117,7 @@ launcher/
 │   ├── commands/          # DDALAB command execution
 │   ├── config/            # Configuration management
 │   ├── detector/          # Installation detection
+│   ├── gui/               # Experimental GUI (Fyne-based)
 │   ├── interrupt/         # Signal handling
 │   ├── status/            # Status monitoring
 │   ├── ui/                # User interface (TUI)
@@ -141,6 +146,26 @@ make dev
 make build
 ./bin/ddalab-launcher -version
 ```
+
+### GUI Development
+The launcher includes an experimental GUI built with Fyne:
+
+```bash
+# GUI requires CGO to be enabled (automatically handled by Makefile)
+make build
+
+# Test GUI functionality
+./bin/ddalab-launcher
+# Then select "Open GUI (Experimental)" from the menu
+```
+
+**GUI Features:**
+- Service control (Start/Stop/Restart)
+- Real-time status monitoring
+- Log viewing in separate windows
+- Configuration management
+- Update checking and installation
+- Cross-platform compatibility
 
 ### Release Process
 1. Update version in build scripts

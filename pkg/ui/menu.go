@@ -65,6 +65,7 @@ func (m *MenuManager) GetMainMenuOptions() []MenuOption {
 		{Label: "Backup Database", Action: "backup", Icon: "💾", Description: "Create database backup"},
 		{Label: "Update DDALAB", Action: "update", Icon: "⬆️", Description: "Update to latest version"},
 		{Label: "Check for Launcher Updates", Action: "check-updates", Icon: "🔄", Description: "Check for launcher updates"},
+		{Label: "Open GUI (Experimental)", Action: "open-gui", Icon: "🖥️", Description: "Launch experimental graphical interface"},
 		{Label: "Uninstall DDALAB", Action: "uninstall", Icon: "🗑️", Description: "Remove DDALAB completely"},
 		{Label: "Exit", Action: "exit", Icon: "👋", Description: "Exit the launcher"},
 	}

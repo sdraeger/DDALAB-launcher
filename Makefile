@@ -9,6 +9,9 @@ BUILD_DIR=bin
 # Go build flags
 LDFLAGS=-ldflags "-s -w"
 
+# Enable CGO for Fyne GUI (required for GUI functionality)
+CGO_ENABLED=1
+
 # Default target
 all: deps build
 
@@ -20,7 +23,7 @@ deps:
 # Build the launcher
 build:
 	mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/launcher
+	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/launcher
 
 # Build for multiple platforms
 build-all: deps
