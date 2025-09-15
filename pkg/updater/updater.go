@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -114,10 +117,22 @@ func (u *Updater) CheckForUpdates(ctx context.Context) (*UpdateInfo, error) {
 	return updateInfo, nil
 }
 
-// PerformUpdate downloads and applies the update
+// PerformUpdate downloads and applies the update safely
 func (u *Updater) PerformUpdate(ctx context.Context, downloadURL string) error {
 	if downloadURL == "" {
 		return fmt.Errorf("no download URL available for this platform")
+	}
+
+	// Get the path to the current executable
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get current executable path: %w", err)
+	}
+
+	// Resolve any symlinks to get the real path
+	currentExe, err = filepath.EvalSymlinks(currentExe)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
 	}
 
 	// Download the new binary
@@ -137,13 +152,12 @@ func (u *Updater) PerformUpdate(ctx context.Context, downloadURL string) error {
 		return fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
-	// Apply the update
-	err = update.Apply(resp.Body, update.Options{})
-	if err != nil {
-		return fmt.Errorf("failed to apply update: %w", err)
+	// Use platform-specific update strategy
+	if runtime.GOOS == "windows" {
+		return u.performWindowsUpdate(currentExe, resp.Body)
+	} else {
+		return u.performUnixUpdate(currentExe, resp.Body)
 	}
-
-	return nil
 }
 
 // ParseVersion parses a version string, handling 'v' prefix (exported for testing)
@@ -266,4 +280,101 @@ func GetPlatformString() string {
 	}
 
 	return fmt.Sprintf("%s %s", osName, archName)
+}
+
+// performUnixUpdate handles updates on Unix-like systems (macOS, Linux)
+func (u *Updater) performUnixUpdate(currentExe string, updateBody io.Reader) error {
+	// Create a temporary file for the new binary
+	tempDir := filepath.Dir(currentExe)
+	tempFile, err := os.CreateTemp(tempDir, "launcher-update-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	tempPath := tempFile.Name()
+	tempFile.Close()
+
+	// Ensure cleanup
+	defer func() {
+		_ = os.Remove(tempPath)
+	}()
+
+	// Write the new binary to temp file using go-update (for validation and verification)
+	err = update.Apply(updateBody, update.Options{
+		TargetPath: tempPath,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to apply update to temporary file: %w", err)
+	}
+
+	// Make the temp file executable
+	err = os.Chmod(tempPath, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to make temporary file executable: %w", err)
+	}
+
+	// Create backup of current binary
+	backupPath := currentExe + ".backup"
+	err = os.Rename(currentExe, backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to backup current binary: %w", err)
+	}
+
+	// Move new binary into place
+	err = os.Rename(tempPath, currentExe)
+	if err != nil {
+		// Try to restore backup
+		_ = os.Rename(backupPath, currentExe)
+		return fmt.Errorf("failed to move new binary into place: %w", err)
+	}
+
+	// Remove backup on success
+	_ = os.Remove(backupPath)
+
+	return nil
+}
+
+// performWindowsUpdate handles updates on Windows
+func (u *Updater) performWindowsUpdate(currentExe string, updateBody io.Reader) error {
+	// On Windows, we can't replace a running executable directly
+	// We use a different strategy: download to .new, create a batch script to replace it
+
+	newPath := currentExe + ".new"
+	batchPath := currentExe + ".update.bat"
+
+	// Ensure cleanup
+	defer func() {
+		_ = os.Remove(newPath)
+		_ = os.Remove(batchPath)
+	}()
+
+	// Write the new binary using go-update
+	err := update.Apply(updateBody, update.Options{
+		TargetPath: newPath,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to apply update to .new file: %w", err)
+	}
+
+	// Create a batch script to perform the replacement after this process exits
+	batchContent := fmt.Sprintf(`@echo off
+timeout /t 2 /nobreak >nul
+move "%s" "%s.old"
+move "%s" "%s"
+del "%s.old"
+del "%%~f0"
+`, currentExe, currentExe, newPath, currentExe, currentExe)
+
+	err = os.WriteFile(batchPath, []byte(batchContent), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create update batch script: %w", err)
+	}
+
+	// Start the batch script in the background
+	cmd := exec.Command("cmd", "/c", "start", "/b", batchPath)
+	err = cmd.Start()
+	if err != nil {
+		return fmt.Errorf("failed to start update batch script: %w", err)
+	}
+
+	return nil
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -522,7 +523,16 @@ func (l *Launcher) performLauncherUpdate(ctx context.Context, updaterInstance *u
 
 	l.ui.ShowSuccess("Update completed successfully!")
 	l.ui.ShowInfo(fmt.Sprintf("Updated to version %s", updateInfo.LatestVersion))
-	l.ui.ShowInfo("Please restart the launcher to use the new version")
+	
+	// Platform-specific restart instructions
+	switch runtime.GOOS {
+	case "windows":
+		l.ui.ShowInfo("The launcher will be replaced automatically when you exit.")
+		l.ui.ShowInfo("Please close this window and start the launcher again.")
+	default:
+		l.ui.ShowInfo("The update has been applied to the binary.")
+		l.ui.ShowInfo("Please restart the launcher to use the new version.")
+	}
 
 	// Update the version in config
 	l.configManager.GetConfig().Version = updateInfo.LatestVersion
