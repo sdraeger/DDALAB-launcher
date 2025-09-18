@@ -92,14 +92,6 @@ func (d *Dispatcher) executeAPICommand(ctx context.Context, command string, args
 	}
 }
 
-// executeLocalCommand executes commands using fallback capabilities
-// This is now deprecated as all operations should go through the API
-func (d *Dispatcher) executeLocalCommand(command string, args ...string) error {
-	// In the new architecture, "local mode" is just API mode with bootstrap fallback
-	// All operations should be routed through the API client
-	return fmt.Errorf("local command execution is deprecated - use API mode with bootstrap instead")
-}
-
 // GetStatus returns status information using API mode with bootstrap fallback
 func (d *Dispatcher) GetStatus() (interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
