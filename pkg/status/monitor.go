@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ddalab/launcher/pkg/commands"
+	"github.com/ddalab/launcher/pkg/api"
 )
 
 // Status represents the current DDALAB status
@@ -58,9 +58,9 @@ func (s Status) GetColoredDot() string {
 	}
 }
 
-// Monitor continuously monitors DDALAB status
+// Monitor continuously monitors DDALAB status via API
 type Monitor struct {
-	commander     *commands.Commander
+	apiClient     *api.Client
 	currentStatus Status
 	lastCheck     time.Time
 	mutex         sync.RWMutex
@@ -69,12 +69,12 @@ type Monitor struct {
 	running       bool
 }
 
-// NewMonitor creates a new status monitor
-func NewMonitor(commander *commands.Commander) *Monitor {
+// NewMonitor creates a new status monitor that uses the API client
+func NewMonitor(apiClient *api.Client) *Monitor {
 	return &Monitor{
-		commander:     commander,
+		apiClient:     apiClient,
 		currentStatus: StatusUnknown,
-		refreshRate:   5 * time.Second, // Check every 5 seconds
+		refreshRate:   1 * time.Second, // Check every 1 second for real-time updates
 		stopChan:      make(chan bool),
 	}
 }
@@ -179,107 +179,118 @@ func (m *Monitor) monitorLoop() {
 	}
 }
 
-// checkStatus performs the actual status check
+// checkStatus performs the actual status check using the API
 func (m *Monitor) checkStatus() Status {
 	// Use a timeout context for status checks
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Try to get the running status
-	running, err := m.checkIsRunning(ctx)
+	// Try to get status from the API
+	status, err := m.apiClient.GetStatus(ctx)
 	if err != nil {
-		// Check if it's a configuration error (no DDALAB path set)
-		if strings.Contains(err.Error(), "not configured") {
-			return StatusUnknown
+		// Check if it's a connection error (backend not available)
+		if strings.Contains(err.Error(), "connection refused") ||
+			strings.Contains(err.Error(), "no such host") ||
+			strings.Contains(err.Error(), "connection timeout") {
+			return StatusUnknown // Backend not available
 		}
 		return StatusError
 	}
 
-	if running {
-		// Double-check by trying to get service health
-		if m.verifyServicesHealthy(ctx) {
-			return StatusUp
-		} else {
-			return StatusStarting // Services are starting but not fully healthy
-		}
-	}
-
-	return StatusDown
+	// Convert API status to local status
+	return m.convertAPIStatus(status)
 }
 
-// checkIsRunning checks if DDALAB is running with timeout
-func (m *Monitor) checkIsRunning(ctx context.Context) (bool, error) {
-	// Create a channel to receive the result
-	resultChan := make(chan bool, 1)
-	errorChan := make(chan error, 1)
+// convertAPIStatus converts API status response to local Status enum
+func (m *Monitor) convertAPIStatus(apiStatus *api.Status) Status {
+	if !apiStatus.Running {
+		return StatusDown
+	}
 
-	go func() {
-		running, err := m.commander.IsRunning()
-		if err != nil {
-			errorChan <- err
-		} else {
-			resultChan <- running
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return false, ctx.Err()
-	case err := <-errorChan:
-		return false, err
-	case running := <-resultChan:
-		return running, nil
+	// Check the overall state from the API
+	switch strings.ToLower(apiStatus.State) {
+	case "up":
+		return StatusUp
+	case "down":
+		return StatusDown
+	case "starting":
+		return StatusStarting
+	case "stopping":
+		return StatusStopping
+	case "error":
+		return StatusError
+	default:
+		// Fall back to service-level analysis
+		return m.analyzeServiceHealth(apiStatus.Services)
 	}
 }
 
-// verifyServicesHealthy checks if services are actually healthy
-func (m *Monitor) verifyServicesHealthy(ctx context.Context) bool {
-	// Create a channel to receive the result
-	resultChan := make(chan bool, 1)
+// analyzeServiceHealth analyzes individual service statuses
+func (m *Monitor) analyzeServiceHealth(services []api.Service) Status {
+	if len(services) == 0 {
+		return StatusDown
+	}
 
-	go func() {
-		services, err := m.commander.GetServiceHealth()
-		if err != nil {
-			resultChan <- false
-			return
-		}
+	healthyCount := 0
+	totalCount := len(services)
+	hasErrors := false
 
-		// Check if core services are healthy
-		healthy := true
-		coreServices := []string{"ddalab", "postgres", "redis"} // Core services that must be up
-
-		for _, service := range coreServices {
-			if status, exists := services[service]; exists {
-				// Consider service healthy if it's "Up", "running", or "healthy"
-				if !isHealthyStatus(status) {
-					healthy = false
-					break
-				}
+	for _, service := range services {
+		switch strings.ToLower(service.Health) {
+		case "healthy":
+			healthyCount++
+		case "unhealthy":
+			hasErrors = true
+		case "starting":
+			// Service is starting, don't count as healthy yet
+		default:
+			// Check legacy status field
+			if isHealthyServiceStatus(service.Status) {
+				healthyCount++
+			} else if isErrorServiceStatus(service.Status) {
+				hasErrors = true
 			}
 		}
-
-		resultChan <- healthy
-	}()
-
-	select {
-	case <-ctx.Done():
-		return false
-	case healthy := <-resultChan:
-		return healthy
 	}
+
+	if hasErrors {
+		return StatusError
+	}
+
+	if healthyCount == totalCount {
+		return StatusUp
+	}
+
+	if healthyCount > 0 {
+		return StatusStarting // Some services healthy, others starting
+	}
+
+	return StatusStarting // All services starting
 }
 
-// isHealthyStatus determines if a service status indicates health
-func isHealthyStatus(status string) bool {
-	healthyStatuses := []string{"Up", "running", "healthy", "Up (healthy)"}
+// isHealthyServiceStatus determines if a service status indicates health
+func isHealthyServiceStatus(status string) bool {
+	healthyStatuses := []string{"running", "up", "healthy"}
 	statusLower := strings.ToLower(status)
 
 	for _, healthy := range healthyStatuses {
-		if strings.Contains(statusLower, strings.ToLower(healthy)) {
+		if strings.Contains(statusLower, healthy) {
 			return true
 		}
 	}
+	return false
+}
 
+// isErrorServiceStatus determines if a service status indicates an error
+func isErrorServiceStatus(status string) bool {
+	errorStatuses := []string{"error", "failed", "exited", "dead"}
+	statusLower := strings.ToLower(status)
+
+	for _, errorStatus := range errorStatuses {
+		if strings.Contains(statusLower, errorStatus) {
+			return true
+		}
+	}
 	return false
 }
 

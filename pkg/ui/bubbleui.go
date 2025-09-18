@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -43,16 +44,21 @@ var (
 			Italic(true)
 )
 
+// StatusRefreshMsg is sent when the status should be refreshed
+type StatusRefreshMsg struct{}
+
 // MenuModel represents a selection menu
 type MenuModel struct {
-	title     string
-	items     []string
-	cursor    int
-	selected  int
-	choice    string
-	cancelled bool
-	width     int
-	height    int
+	title         string
+	items         []string
+	cursor        int
+	selected      int
+	choice        string
+	cancelled     bool
+	width         int
+	height        int
+	statusMonitor interface{ FormatStatus() string } // Status monitor interface
+	statusText    string                             // Cached status text
 }
 
 // NewMenuModel creates a new menu model
@@ -66,12 +72,50 @@ func NewMenuModel(title string, items []string) *MenuModel {
 	}
 }
 
+// NewMenuModelWithStatus creates a new menu model with status monitoring
+func NewMenuModelWithStatus(title string, items []string, statusMonitor interface{ FormatStatus() string }) *MenuModel {
+	model := &MenuModel{
+		title:         title,
+		items:         items,
+		selected:      -1,
+		width:         80,
+		height:        20,
+		statusMonitor: statusMonitor,
+	}
+
+	// Initialize status text
+	if statusMonitor != nil {
+		model.statusText = statusMonitor.FormatStatus()
+	}
+
+	return model
+}
+
+// tickCmd returns a command that sends a tick message after 1 second
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return StatusRefreshMsg{}
+	})
+}
+
 func (m *MenuModel) Init() tea.Cmd {
+	// Start ticking if we have a status monitor
+	if m.statusMonitor != nil {
+		return tickCmd()
+	}
 	return nil
 }
 
 func (m *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case StatusRefreshMsg:
+		// Update status text if we have a monitor
+		if m.statusMonitor != nil {
+			m.statusText = m.statusMonitor.FormatStatus()
+		}
+		// Schedule next refresh
+		return m, tickCmd()
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -113,7 +157,15 @@ func (m *MenuModel) View() string {
 
 	// Title
 	if m.title != "" {
-		b.WriteString(titleStyle.Render(m.title) + "\n\n")
+		b.WriteString(titleStyle.Render(m.title) + "\n")
+	}
+
+	// Status display
+	if m.statusText != "" {
+		statusStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).
+			Padding(0, 1)
+		b.WriteString(statusStyle.Render("📊 DDALAB Status: "+m.statusText) + "\n\n")
 	}
 
 	// Menu items
@@ -398,6 +450,24 @@ func (m *WaitModel) View() string {
 // RunMenu displays a menu and returns the selected choice
 func RunMenu(title string, items []string) (string, error) {
 	model := NewMenuModel(title, items)
+	p := tea.NewProgram(model)
+
+	finalModel, err := p.Run()
+	if err != nil {
+		return "", err
+	}
+
+	menuModel := finalModel.(*MenuModel)
+	if menuModel.cancelled {
+		return "", fmt.Errorf("cancelled")
+	}
+
+	return menuModel.choice, nil
+}
+
+// RunMenuWithStatus displays a menu with live status updates
+func RunMenuWithStatus(title string, items []string, statusMonitor interface{ FormatStatus() string }) (string, error) {
+	model := NewMenuModelWithStatus(title, items, statusMonitor)
 	p := tea.NewProgram(model)
 
 	finalModel, err := p.Run()

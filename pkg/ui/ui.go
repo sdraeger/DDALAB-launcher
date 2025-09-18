@@ -44,18 +44,21 @@ func (ui *UI) ShowMainMenuWithStatus(statusMonitor any) (string, error) {
 		fmt.Printf("📂 Installation: %s\n", config.DDALABPath)
 	}
 
-	// Display status if monitor is provided
-	if statusMonitor != nil {
-		// Use any to avoid circular import, then type assert
-		if monitor, ok := statusMonitor.(interface{ FormatStatus() string }); ok {
-			fmt.Printf("📊 DDALAB Status: %s\n", monitor.FormatStatus())
-		}
-	}
-
 	menuManager := NewMenuManager(ui)
 	options := menuManager.GetMainMenuOptions()
 
-	action, err := menuManager.ShowMenu("What would you like to do?", options)
+	// Use status-aware menu if monitor is provided
+	var action string
+	var err error
+	if statusMonitor != nil {
+		if monitor, ok := statusMonitor.(interface{ FormatStatus() string }); ok {
+			action, err = menuManager.ShowMenuWithStatus("What would you like to do?", options, monitor)
+		} else {
+			action, err = menuManager.ShowMenu("What would you like to do?", options)
+		}
+	} else {
+		action, err = menuManager.ShowMenu("What would you like to do?", options)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -67,6 +70,7 @@ func (ui *UI) ShowMainMenuWithStatus(statusMonitor any) (string, error) {
 		"restart":       "Restart DDALAB",
 		"status":        "Check Status",
 		"logs":          "View Logs",
+		"bootstrap":     "Bootstrap DDALAB",
 		"edit-config":   "Edit Configuration",
 		"configure":     "Configure Installation",
 		"backup":        "Backup Database",

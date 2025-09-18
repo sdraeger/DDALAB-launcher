@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/ddalab/launcher/internal/app"
 	"github.com/ddalab/launcher/internal/terminal"
@@ -16,8 +17,10 @@ import (
 var version = "dev"
 
 func main() {
-	// Handle version flag
+	// Handle CLI flags
 	var showVersion = flag.Bool("version", false, "Show version information")
+	var forceMode = flag.String("mode", "", "Force operation mode: 'local', 'api', or 'auto'")
+	var apiEndpoint = flag.String("api-endpoint", "", "Docker extension API endpoint (default: http://localhost:8080/api)")
 	flag.Parse()
 
 	if *showVersion {
@@ -55,6 +58,11 @@ func main() {
 		log.Fatalf("Failed to initialize launcher: %v", err)
 	}
 
+	// Apply CLI overrides if provided
+	if err := applyModeOverrides(launcher, *forceMode, *apiEndpoint); err != nil {
+		log.Fatalf("Failed to apply mode overrides: %v", err)
+	}
+
 	if err := launcher.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 
@@ -63,4 +71,38 @@ func main() {
 		_, _ = fmt.Scanln()
 		os.Exit(1)
 	}
+}
+
+// applyModeOverrides applies CLI flag overrides to the launcher configuration
+func applyModeOverrides(launcher *app.Launcher, forceMode, apiEndpoint string) error {
+	configManager := launcher.GetConfigManager()
+
+	// Override API endpoint if provided
+	if apiEndpoint != "" {
+		configManager.SetAPIEndpoint(apiEndpoint)
+	}
+
+	// Override operation mode if provided
+	if forceMode != "" {
+		var mode config.OperationMode
+		switch strings.ToLower(forceMode) {
+		case "local":
+			mode = config.ModeLocal
+		case "api":
+			mode = config.ModeAPI
+		case "auto":
+			mode = config.ModeAuto
+		default:
+			return fmt.Errorf("invalid mode '%s'. Valid modes: local, api, auto", forceMode)
+		}
+
+		configManager.SetOperationMode(mode)
+
+		// Save the configuration with overrides
+		if err := configManager.Save(); err != nil {
+			return fmt.Errorf("failed to save mode overrides: %w", err)
+		}
+	}
+
+	return nil
 }

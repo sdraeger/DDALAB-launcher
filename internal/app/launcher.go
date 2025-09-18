@@ -7,10 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ddalab/launcher/pkg/api"
 	"github.com/ddalab/launcher/pkg/commands"
 	"github.com/ddalab/launcher/pkg/config"
 	"github.com/ddalab/launcher/pkg/detector"
 	"github.com/ddalab/launcher/pkg/interrupt"
+	"github.com/ddalab/launcher/pkg/mode"
 	"github.com/ddalab/launcher/pkg/status"
 	"github.com/ddalab/launcher/pkg/ui"
 	"github.com/ddalab/launcher/pkg/updater"
@@ -21,9 +23,12 @@ type Launcher struct {
 	configManager    *config.ConfigManager
 	detector         *detector.Detector
 	ui               *ui.UI
+	apiClient        *api.Client
 	commander        *commands.Commander
 	interruptHandler *interrupt.Handler
 	statusMonitor    *status.Monitor
+	modeManager      *mode.Manager
+	dispatcher       *commands.Dispatcher
 }
 
 // NewLauncher creates a new launcher instance
@@ -33,24 +38,50 @@ func NewLauncher() (*Launcher, error) {
 		return nil, fmt.Errorf("failed to initialize config manager: %w", err)
 	}
 
+	// Create API client with endpoint from config
+	apiEndpoint := configManager.GetAPIEndpoint()
+	if apiEndpoint == "" {
+		apiEndpoint = "http://localhost:8080" // Default Docker extension endpoint
+	}
+	apiClient := api.NewClient(apiEndpoint)
+
 	detector := detector.NewDetector()
 	ui := ui.NewUI(configManager, detector)
-	commander := commands.NewCommander(configManager)
+	commander := commands.NewCommander(configManager, apiClient)
 	interruptHandler := interrupt.NewHandler()
-	statusMonitor := status.NewMonitor(commander)
+	statusMonitor := status.NewMonitor(apiClient)
+	modeManager := mode.NewManager(configManager)
+	dispatcher := commands.NewDispatcher(modeManager, commander)
 
 	return &Launcher{
 		configManager:    configManager,
 		detector:         detector,
 		ui:               ui,
+		apiClient:        apiClient,
 		commander:        commander,
 		interruptHandler: interruptHandler,
 		statusMonitor:    statusMonitor,
+		modeManager:      modeManager,
+		dispatcher:       dispatcher,
 	}, nil
+}
+
+// GetConfigManager returns the config manager (for CLI overrides)
+func (l *Launcher) GetConfigManager() *config.ConfigManager {
+	return l.configManager
 }
 
 // Run starts the launcher application
 func (l *Launcher) Run() error {
+	// Initialize operation mode
+	if err := l.modeManager.Initialize(); err != nil {
+		l.ui.ShowWarning(fmt.Sprintf("Mode initialization warning: %v", err))
+		l.ui.ShowInfo("Falling back to local mode")
+	}
+
+	// Show mode information
+	l.ui.ShowInfo(l.modeManager.GetModeDescription())
+
 	// Check if this is the first run
 	if l.configManager.IsFirstRun() {
 		return l.runFirstTimeSetup()
@@ -179,6 +210,8 @@ func (l *Launcher) handleMenuChoice(choice string) error {
 		return l.handleStatusCommand()
 	case "View Logs":
 		return l.handleLogsCommand()
+	case "Bootstrap DDALAB":
+		return l.handleBootstrapCommand()
 	case "Edit Configuration":
 		return l.handleEditConfigCommand()
 	case "Configure Installation":
@@ -201,21 +234,13 @@ func (l *Launcher) handleMenuChoice(choice string) error {
 
 // handleStartCommand starts DDALAB services
 func (l *Launcher) handleStartCommand() error {
-	// Check if already running
-	running, err := l.commander.IsRunning()
-	if err != nil {
-		l.ui.ShowWarning(fmt.Sprintf("Could not check running status: %v", err))
-	} else if running {
-		l.ui.ShowInfo("DDALAB is already running")
-		return nil
-	}
-
 	return l.executeWithInterrupt("starting DDALAB", func(ctx context.Context) error {
 		l.ui.ShowProgress("Starting DDALAB services")
-		if err := l.commander.StartWithContext(ctx); err != nil {
+		if err := l.dispatcher.ExecuteCommand("start"); err != nil {
 			return fmt.Errorf("failed to start DDALAB: %w", err)
 		}
 
+		l.configManager.SetLastOperation("start")
 		l.ui.ShowSuccess("DDALAB started successfully!")
 		l.ui.ShowInfo("Access DDALAB at: https://localhost")
 
@@ -231,16 +256,19 @@ func (l *Launcher) handleStopCommand() error {
 		return nil
 	}
 
-	l.ui.ShowProgress("Stopping DDALAB services")
-	if err := l.commander.Stop(); err != nil {
-		return fmt.Errorf("failed to stop DDALAB: %w", err)
-	}
+	return l.executeWithInterrupt("stopping DDALAB", func(ctx context.Context) error {
+		l.ui.ShowProgress("Stopping DDALAB services")
+		if err := l.dispatcher.ExecuteCommand("stop"); err != nil {
+			return fmt.Errorf("failed to stop DDALAB: %w", err)
+		}
 
-	l.ui.ShowSuccess("DDALAB stopped successfully!")
+		l.configManager.SetLastOperation("stop")
+		l.ui.ShowSuccess("DDALAB stopped successfully!")
 
-	// Refresh status after stopping
-	l.statusMonitor.CheckNow()
-	return nil
+		// Refresh status after stopping
+		l.statusMonitor.CheckNow()
+		return nil
+	})
 }
 
 // handleRestartCommand restarts DDALAB services
@@ -249,49 +277,27 @@ func (l *Launcher) handleRestartCommand() error {
 		return nil
 	}
 
-	l.ui.ShowProgress("Restarting DDALAB services")
-	if err := l.commander.Restart(); err != nil {
-		return fmt.Errorf("failed to restart DDALAB: %w", err)
-	}
+	return l.executeWithInterrupt("restarting DDALAB", func(ctx context.Context) error {
+		l.ui.ShowProgress("Restarting DDALAB services")
+		if err := l.dispatcher.ExecuteCommand("restart"); err != nil {
+			return fmt.Errorf("failed to restart DDALAB: %w", err)
+		}
 
-	l.ui.ShowSuccess("DDALAB restarted successfully!")
+		l.configManager.SetLastOperation("restart")
+		l.ui.ShowSuccess("DDALAB restarted successfully!")
 
-	// Refresh status after restarting
-	l.statusMonitor.CheckNow()
-	return nil
+		// Refresh status after restarting
+		l.statusMonitor.CheckNow()
+		return nil
+	})
 }
 
 // handleStatusCommand shows DDALAB service status
 func (l *Launcher) handleStatusCommand() error {
 	l.ui.ShowProgress("Checking DDALAB status")
 
-	// Check if services are running
-	running, err := l.commander.IsRunning()
-	if err != nil {
-		return fmt.Errorf("failed to check running status: %w", err)
-	}
-
-	if running {
-		l.ui.ShowSuccess("DDALAB is running")
-		l.ui.ShowInfo("Access URL: https://localhost")
-
-		// Get detailed service health
-		services, err := l.commander.GetServiceHealth()
-		if err != nil {
-			l.ui.ShowWarning(fmt.Sprintf("Could not get detailed status: %v", err))
-		} else {
-			fmt.Println("\n📊 Service Status:")
-			for service, status := range services {
-				statusIcon := "🟢"
-				if status != "Up" && status != "running" {
-					statusIcon = "🔴"
-				}
-				fmt.Printf("  %s %s: %s\n", statusIcon, service, status)
-			}
-		}
-	} else {
-		l.ui.ShowInfo("DDALAB is not running")
-		l.ui.ShowInfo("Use 'Start DDALAB' to launch services")
+	if err := l.dispatcher.ExecuteCommand("status"); err != nil {
+		return fmt.Errorf("failed to check status: %w", err)
 	}
 
 	return nil
@@ -302,16 +308,48 @@ func (l *Launcher) handleLogsCommand() error {
 	return l.executeWithInterrupt("fetching logs", func(ctx context.Context) error {
 		l.ui.ShowProgress("Fetching DDALAB logs")
 
-		logs, err := l.commander.LogsWithContext(ctx)
-		if err != nil {
+		if err := l.dispatcher.ExecuteCommand("logs"); err != nil {
 			return fmt.Errorf("failed to get logs: %w", err)
 		}
 
-		fmt.Println("\n📋 === DDALAB Recent Logs ===")
-		fmt.Println(logs)
-		fmt.Println("═══════════════════════════════")
 		l.ui.ShowInfo("To view live logs, use: docker-compose logs -f")
+		return nil
+	})
+}
 
+// handleBootstrapCommand bootstraps DDALAB services when the API backend is not available
+func (l *Launcher) handleBootstrapCommand() error {
+	// Check if bootstrap is available
+	bootstrapper := l.modeManager.GetBootstrapper()
+	if !bootstrapper.CanBootstrap() {
+		l.ui.ShowError("Bootstrap is not available")
+		l.ui.ShowInfo("Bootstrap requires Docker to be running")
+		return nil
+	}
+
+	// Show bootstrap information
+	l.ui.ShowInfo("Bootstrap will start minimal DDALAB services")
+	l.ui.ShowInfo(fmt.Sprintf("Bootstrap mode: %s", bootstrapper.GetBootstrapMode()))
+
+	if !l.ui.ConfirmOperation("bootstrap DDALAB services") {
+		return nil
+	}
+
+	return l.executeWithInterrupt("bootstrapping DDALAB", func(ctx context.Context) error {
+		l.ui.ShowProgress("Bootstrapping DDALAB services")
+		l.ui.ShowInfo("This may take a few minutes...")
+
+		if err := l.modeManager.PerformBootstrap(); err != nil {
+			return fmt.Errorf("bootstrap failed: %w", err)
+		}
+
+		l.configManager.SetLastOperation("bootstrap")
+		l.ui.ShowSuccess("DDALAB bootstrap completed successfully!")
+		l.ui.ShowInfo("Launcher will now use API mode for future operations")
+		l.ui.ShowInfo("Access DDALAB at: https://localhost")
+
+		// Refresh status after bootstrap
+		l.statusMonitor.CheckNow()
 		return nil
 	})
 }
@@ -351,14 +389,17 @@ func (l *Launcher) handleConfigureCommand() error {
 
 // handleBackupCommand creates a database backup
 func (l *Launcher) handleBackupCommand() error {
-	l.ui.ShowProgress("Creating database backup")
+	return l.executeWithInterrupt("creating backup", func(ctx context.Context) error {
+		l.ui.ShowProgress("Creating database backup")
 
-	if err := l.commander.Backup(); err != nil {
-		return fmt.Errorf("backup failed: %w", err)
-	}
+		if err := l.dispatcher.ExecuteCommand("backup"); err != nil {
+			return fmt.Errorf("backup failed: %w", err)
+		}
 
-	l.ui.ShowSuccess("Database backup created successfully!")
-	return nil
+		l.configManager.SetLastOperation("backup")
+		l.ui.ShowSuccess("Database backup created successfully!")
+		return nil
+	})
 }
 
 // handleUpdateCommand updates DDALAB to the latest version
@@ -371,10 +412,11 @@ func (l *Launcher) handleUpdateCommand() error {
 		l.ui.ShowProgress("Updating DDALAB")
 		l.ui.ShowInfo("This may take a few minutes...")
 
-		if err := l.commander.UpdateWithContext(ctx); err != nil {
+		if err := l.dispatcher.ExecuteCommand("update"); err != nil {
 			return fmt.Errorf("update failed: %w", err)
 		}
 
+		l.configManager.SetLastOperation("update")
 		l.ui.ShowSuccess("DDALAB updated successfully!")
 		return nil
 	})
@@ -577,4 +619,9 @@ func (l *Launcher) checkForUpdatesOnStartup() {
 		l.ui.ShowInfo(fmt.Sprintf("📦 Update available: %s → %s", updateInfo.CurrentVersion, updateInfo.LatestVersion))
 		l.ui.ShowInfo("Use 'Check for Launcher Updates' from the menu to install")
 	}
+}
+
+// GetModeManager returns the mode manager (for accessing mode functionality)
+func (l *Launcher) GetModeManager() *mode.Manager {
+	return l.modeManager
 }
