@@ -1,10 +1,7 @@
 name: Build and Release
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  # Only allow manual releases to prevent duplicate releases on every commit
   workflow_dispatch:
     inputs:
       version_type:
@@ -16,6 +13,10 @@ on:
         - patch
         - minor
         - major
+  # Also trigger on version tags
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -47,7 +48,7 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -64,61 +65,53 @@ jobs:
     - name: Calculate version
       id: version
       run: |
-        # Get the latest tag, if any
-        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-        echo "Latest tag: $LATEST_TAG"
-        
-        # Extract version numbers
-        VERSION=${LATEST_TAG#v}
-        IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
-        MAJOR=${VERSION_PARTS[0]:-0}
-        MINOR=${VERSION_PARTS[1]:-0}
-        PATCH=${VERSION_PARTS[2]:-0}
-        
-        # Determine increment type
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          INCREMENT_TYPE="${{ github.event.inputs.version_type }}"
+        if [ "${{ github.event_name }}" == "push" ] && [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          # For tag pushes, use the tag version directly
+          TAG_NAME="${{ github.ref_name }}"
+          VERSION=${TAG_NAME#v}
+          NEW_TAG="$TAG_NAME"
+          INCREMENT_TYPE="tag"
+          echo "Using tag version: $VERSION"
         else
-          # Parse commit message for version increment keywords
-          COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
-          echo "Commit message: $COMMIT_MESSAGE"
+          # For manual triggers, calculate next version
+          # Get the latest tag, if any
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
           
-          if echo "$COMMIT_MESSAGE" | grep -qiE "\[(major|breaking)\]|^(major|breaking):"; then
-            INCREMENT_TYPE="major"
-            echo "Detected MAJOR version increment from commit message"
-          elif echo "$COMMIT_MESSAGE" | grep -qiE "\[(minor|feature|feat)\]|^(minor|feature|feat):"; then
-            INCREMENT_TYPE="minor"
-            echo "Detected MINOR version increment from commit message"
-          else
-            INCREMENT_TYPE="patch"
-            echo "Default PATCH version increment"
-          fi
+          # Extract version numbers
+          VERSION=${LATEST_TAG#v}
+          IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+          MAJOR=${VERSION_PARTS[0]:-0}
+          MINOR=${VERSION_PARTS[1]:-0}
+          PATCH=${VERSION_PARTS[2]:-0}
+          
+          # Determine increment type
+          INCREMENT_TYPE="${{ github.event.inputs.version_type }}"
+          echo "Increment type: $INCREMENT_TYPE"
+          
+          # Increment version based on type
+          case $INCREMENT_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          NEW_TAG="v${VERSION}"
         fi
         
-        echo "Increment type: $INCREMENT_TYPE"
-        
-        # Increment version based on type
-        case $INCREMENT_TYPE in
-          major)
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-            ;;
-          minor)
-            MINOR=$((MINOR + 1))
-            PATCH=0
-            ;;
-          patch)
-            PATCH=$((PATCH + 1))
-            ;;
-        esac
-        
-        NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-        NEW_TAG="v${NEW_VERSION}"
-        
-        echo "New version: $NEW_VERSION"
+        echo "New version: $VERSION"
         echo "New tag: $NEW_TAG"
-        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
         echo "increment_type=$INCREMENT_TYPE" >> $GITHUB_OUTPUT
 
@@ -213,11 +206,39 @@ jobs:
         sha256sum *.tar.gz *.zip > ddalab-launcher-v${VERSION}-checksums.txt
         cat ddalab-launcher-v${VERSION}-checksums.txt
 
+    - name: Verify release assets
+      run: |
+        cd build
+        VERSION="${{ steps.version.outputs.version }}"
+        echo "Verifying all expected files exist..."
+        
+        EXPECTED_FILES=(
+          "ddalab-launcher-v${VERSION}-linux-amd64.tar.gz"
+          "ddalab-launcher-v${VERSION}-linux-arm64.tar.gz"
+          "ddalab-launcher-v${VERSION}-darwin-amd64.tar.gz"
+          "ddalab-launcher-v${VERSION}-darwin-arm64.tar.gz"
+          "ddalab-launcher-v${VERSION}-windows-amd64.zip"
+          "ddalab-launcher-v${VERSION}-windows-arm64.zip"
+          "ddalab-launcher-v${VERSION}-checksums.txt"
+        )
+        
+        for file in "${EXPECTED_FILES[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "ERROR: Missing file: $file"
+            exit 1
+          else
+            echo "✓ Found: $file ($(du -h "$file" | cut -f1))"
+          fi
+        done
+        
+        echo "All expected files present!"
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.version.outputs.tag }}
         name: Release ${{ steps.version.outputs.tag }}
+        fail_on_unmatched_files: true
         body: |
           ## DDALAB Launcher ${{ steps.version.outputs.version }}
           
@@ -302,7 +323,7 @@ jobs:
   update-submodule:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
     steps:
     - name: Trigger submodule update in main repository
       run: |
